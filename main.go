@@ -6,6 +6,7 @@ import (
 
 	"snakesel/PotBS_LangUI/pkg/gtkutils"
 	"snakesel/PotBS_LangUI/pkg/potbs"
+	"snakesel/PotBS_LangUI/pkg/tmpl"
 
 	"path/filepath"
 	"sort"
@@ -17,6 +18,8 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
+var TmplList []tmpl.TTmpl
+
 // IDs to access the tree view columns by
 const (
 	columnID = iota
@@ -26,7 +29,12 @@ const (
 	columnRuColor
 )
 
-const appId = "snakesel.potbs-langui"
+const (
+	test      = true
+	appId     = "snakesel.potbs-langui"
+	MainGlade = "data/main.glade"
+	tmplFile  = "data/tmpl"
+)
 
 type Tlang struct {
 	id   string
@@ -49,9 +57,13 @@ type MainWindow struct {
 
 	Search *gtk.SearchEntry
 
-	ToolBtnSave   *gtk.ToolButton
-	ToolBtnSaveAs *gtk.ToolButton
-	ToolSwitchDir *gtk.ToggleToolButton
+	ToolBtnSave       *gtk.ToolButton
+	ToolBtnSaveAs     *gtk.ToolButton
+	ToolBtnTmpl       *gtk.ToolButton
+	ToolSwitchDir     *gtk.ToggleToolButton
+	ToolSwitchCopyBuf *gtk.ToggleToolButton
+
+	Renderer_ru *gtk.CellRendererText
 
 	FilePatch string
 	FileName  string
@@ -68,8 +80,9 @@ type DialogWindow struct {
 	BufferEn *gtk.TextBuffer
 	BufferRu *gtk.TextBuffer
 
-	BtnCancel *gtk.Button
-	BtnOk     *gtk.Button
+	BtnCancel  *gtk.Button
+	BtnOk      *gtk.Button
+	BtnTmplRun *gtk.Button
 
 	Label *gtk.Label
 }
@@ -80,7 +93,7 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) {
 	iter := listStore.Append()
 
 	color := *gdk.NewRGBA(250, 50, 50, 1)
-	color.SetColors(250, 50, 50, 1)
+	//color.SetColors(250, 80, 80, 1)
 
 	// color.SetColors(0.0, 0.0, 0.0, 0.0)
 	// Set the contents of the list store row that the iterator represents
@@ -90,6 +103,7 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) {
 	if err != nil {
 		log.Fatal("Unable to add row:", err)
 	}
+
 }
 
 func main() {
@@ -101,7 +115,7 @@ func main() {
 	// Connect function to application activate event
 	application.Connect("activate", func() {
 		// Создаём билдер
-		b, err := gtk.BuilderNewFromFile("main.glade")
+		b, err := gtk.BuilderNewFromFile(MainGlade)
 		errorCheck(err, "Error: No load main.glade")
 
 		win := mainWindowCreate(b)
@@ -110,8 +124,10 @@ func main() {
 		// Map the handlers to callback functions, and connect the signals
 		// to the Builder.
 		signals := map[string]interface{}{
-			"main_btn_save_clicked":   win.ToolBtnSave_clicked,
-			"main_btn_saveas_clicked": win.ToolBtnSaveAs_clicked,
+			"main_btn_save_clicked":       win.ToolBtnSave_clicked,
+			"main_btn_saveas_clicked":     win.ToolBtnSaveAs_clicked,
+			"main_btn_tmpl_clicked":       win.ToolBtnTmpl_clicked,
+			"dialog_btn_tmpl_run_clicked": dialog.BtnTmplRun_clicked,
 		}
 		b.ConnectSignals(signals)
 
@@ -163,6 +179,9 @@ func main() {
 		// Загружаем файлы перевода
 		win.loadFiles()
 
+		// Загружаем шаблоны
+		TmplList = tmpl.LoadTmplFromFile(tmplFile)
+
 		// Отображаем все виджеты в окне
 		win.Window.Show()
 
@@ -192,13 +211,16 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.TreeView = gtkutils.GetTreeView(b, "treeview")
 	win.ListStore = gtkutils.GetListStore(b, "liststore")
 	win.LineSelection = gtkutils.GetTreeSelection(b, "LineSelection")
+	win.Renderer_ru = gtkutils.GetCellRendererText(b, "renderer_ru")
 
 	win.Search = gtkutils.GetSearchEntry(b, "entry_search")
 
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
+	win.ToolBtnTmpl = gtkutils.GetToolButton(b, "tool_btn_tmpl")
 	win.ToolSwitchDir = gtkutils.GetToggleToolButton(b, "tool_switch_dir")
-	win.ToolSwitchDir.SetActive(true)
+	//win.ToolSwitchDir.SetActive(true)
+	win.ToolSwitchCopyBuf = gtkutils.GetToggleToolButton(b, "tool_switch_copy_buf")
 
 	win.BtnClose = gtkutils.GetButton(b, "button_close")
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
@@ -206,6 +228,7 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 
 	return win
 }
+
 func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 	// Окно диалога
 	dialog := new(DialogWindow)
@@ -232,6 +255,7 @@ func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 
 	dialog.BtnCancel = gtkutils.GetButton(b, "dialog_btn_cancel")
 	dialog.BtnOk = gtkutils.GetButton(b, "dialog_btn_ok")
+	dialog.BtnTmplRun = gtkutils.GetButton(b, "dialog_btn_tmpl_run")
 
 	dialog.Label = gtkutils.GetLabel(b, "dialog_label")
 
@@ -244,7 +268,10 @@ func (win *MainWindow) loadFiles() {
 	DataALL := make(map[string]Tlang)
 
 	// Load EN
-	win.FilePatch = "/home/mks/Pirates of the Burning Sea/locale"
+	if test {
+		win.FilePatch = "/home/mks/Pirates of the Burning Sea/locale"
+	}
+
 	win.getFileName("Выберите исходный файл для перевода")
 
 	Data := potbs.ReadDat(win.FileName)
@@ -307,17 +334,22 @@ func (win *MainWindow) loadFiles() {
 	for _, line := range lines {
 		addRow(win.ListStore, line.id, line.mode, line.en, line.ru)
 	}
+	//color := *gdk.NewRGBA(239,41,41)
+	//win.Renderer_ru.SetProperty("background-rgba", win.ListStore.GetColumnType(columnRuColor))
 
+	//win.Renderer_ru.SetProperty("background-set", true)
 }
 
 func (win *MainWindow) ToolBtnSave_clicked() {
-	native := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, "Внимание!")
-	native.FormatSecondaryText("Вы уверены, что хотите перезаписать\n" + win.FileName + " ?")
-	resp := native.Run()
-	native.Close()
-	if resp == -5 {
+	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, "Внимание!")
+	dialog.FormatSecondaryText("Вы уверены, что хотите перезаписать\n" + win.FileName + " ?")
+	resp := dialog.Run()
+	dialog.Close()
+	if resp == gtk.RESPONSE_OK {
 		savedatfile(win, win.FileName)
+		//win.Window.Destroy()
 	}
+
 }
 
 func (win *MainWindow) ToolBtnSaveAs_clicked() {
@@ -325,12 +357,27 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	errorCheck(err)
 	native.SetCurrentFolder(win.FilePatch)
 	native.SetCurrentName("out.dat")
-	errint := native.Run()
+	resp := native.Run()
 
-	if errint == -3 {
+	if resp == int(gtk.RESPONSE_ACCEPT) {
 		log.Println(native.GetFilename())
 		savedatfile(win, native.GetFilename())
+		win.Window.Destroy()
 	}
+
+}
+func (win *MainWindow) ToolBtnTmpl_clicked() {
+
+	wintmpl := tmpl.TmplWindowCreate()
+
+	wintmpl.BtnSave.Connect("clicked", func() {
+		TmplList = wintmpl.GetTmpls()
+		tmpl.SaveTmplToFile(TmplList, tmplFile)
+		wintmpl.Window.Destroy()
+	})
+
+	//wintmpl.Window.SetParent(win.Window)
+	wintmpl.Run(TmplList)
 }
 
 func (win *MainWindow) getFileName(title string) {
@@ -345,16 +392,20 @@ func (win *MainWindow) getFileName(title string) {
 	filter_all.AddPattern("*")
 	filter_all.SetName("Any files")
 
-	native, err := gtk.FileChooserDialogNewWith2Buttons(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "Cancel", gtk.RESPONSE_CANCEL, "OK", gtk.RESPONSE_OK)
+	native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
 	errorCheck(err)
 
-	native.SetCurrentFolder(win.FilePatch)
+	if win.FilePatch != "" {
+		native.SetCurrentFolder(win.FilePatch)
+	}
 	native.AddFilter(filter_dat)
 	native.AddFilter(filter_all)
 	native.SetFilter(filter_dat)
 
 	respons := native.Run()
-	if respons != gtk.RESPONSE_OK {
+
+	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
+	if respons != int(gtk.RESPONSE_ACCEPT) {
 		win.Window.Close()
 		log.Fatal("Отмена выбора файла")
 	}
@@ -413,7 +464,7 @@ func savedatfile(win *MainWindow, outfile string) {
 		patch, file := filepath.Split(outfile)
 		potbs.SaveDir(patch+str.TrimSuffix(file, filepath.Ext(file))+".dir", dirs)
 	}
-	win.Window.Destroy()
+
 }
 
 func (win *MainWindow) lineSelected(dialog *DialogWindow) {
@@ -437,8 +488,10 @@ func (win *MainWindow) lineSelected(dialog *DialogWindow) {
 	errorCheck(err)
 	dialog.Label.SetText(strID)
 
-	clip, _ := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
-	clip.SetText(strID + "\t" + strEN + "\t")
+	if win.ToolSwitchCopyBuf.GetActive() {
+		clip, _ := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+		clip.SetText(strID + "\t" + strEN + "\t")
+	}
 
 	dialog.Window.Run()
 
@@ -526,6 +579,20 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 
 	}
 	return nil
+}
+
+// Заменяем текст оригинала по шаблонам
+func (dialog *DialogWindow) BtnTmplRun_clicked() {
+
+	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
+	errorCheck(err)
+
+	for _, line := range TmplList {
+		text = str.ReplaceAll(text, line.En, line.Ru)
+	}
+
+	dialog.BufferRu.SetText(text)
+
 }
 
 func errorCheck(e error, text_opt ...string) {
