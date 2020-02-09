@@ -1,4 +1,5 @@
 // main.go
+
 package main
 
 import (
@@ -13,12 +14,25 @@ import (
 	"strconv"
 	str "strings"
 
-	"github.com/gotk3/gotk3/gdk"
+	//	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
+
+	//"os"
+
+	"gopkg.in/ini.v1"
+)
+
+const (
+	version   = "20200209"
+	appId     = "snakesel.potbs-langui"
+	MainGlade = "data/main.glade"
+	tmplFile  = "data/tmpl"
+	cfgFile   = "data/cfg.ini"
 )
 
 var TmplList []tmpl.TTmpl
+var cfg *ini.File
 
 // IDs to access the tree view columns by
 const (
@@ -26,14 +40,7 @@ const (
 	columnMode
 	columnEN
 	columnRU
-	columnRuColor
-)
-
-const (
-	test      = true
-	appId     = "snakesel.potbs-langui"
-	MainGlade = "data/main.glade"
-	tmplFile  = "data/tmpl"
+	//columnRuColor
 )
 
 type Tlang struct {
@@ -48,6 +55,7 @@ type MainWindow struct {
 
 	TreeView  *gtk.TreeView
 	ListStore *gtk.ListStore
+	Filter    *gtk.TreeModelFilter
 
 	LineSelection *gtk.TreeSelection
 
@@ -55,20 +63,20 @@ type MainWindow struct {
 	BtnUp    *gtk.Button
 	BtnDown  *gtk.Button
 
-	Search *gtk.SearchEntry
+	Search      *gtk.SearchEntry
+	Search_Full *gtk.CheckButton
 
-	ToolBtnSave       *gtk.ToolButton
-	ToolBtnSaveAs     *gtk.ToolButton
-	ToolBtnTmpl       *gtk.ToolButton
-	ToolSwitchDir     *gtk.ToggleToolButton
-	ToolSwitchCopyBuf *gtk.ToggleToolButton
+	ToolBtnSave   *gtk.ToolButton
+	ToolBtnSaveAs *gtk.ToolButton
+	ToolBtnTmpl   *gtk.ToolButton
 
 	Renderer_ru *gtk.CellRendererText
 
 	FilePatch string
 	FileName  string
 
-	Iterator *gtk.TreeIter
+	Iterator    *gtk.TreeIter
+	EndIterator gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
 }
 
 type DialogWindow struct {
@@ -88,25 +96,35 @@ type DialogWindow struct {
 }
 
 // Append a row to the list store for the tree view
-func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) {
+func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) *gtk.TreeIter {
 	// Get an iterator for a new row at the end of the list store
 	iter := listStore.Append()
 
-	color := *gdk.NewRGBA(250, 50, 50, 1)
+	//color := *gdk.NewRGBA(250, 50, 50, 1)
 	//color.SetColors(250, 80, 80, 1)
 
 	// color.SetColors(0.0, 0.0, 0.0, 0.0)
 	// Set the contents of the list store row that the iterator represents
 	err := listStore.Set(iter,
-		[]int{columnID, columnMode, columnEN, columnRU, columnRuColor},
-		[]interface{}{id, tpe, en, ru, color})
+		[]int{columnID, columnMode, columnEN, columnRU},
+		[]interface{}{id, tpe, en, ru})
 	if err != nil {
 		log.Fatal("Unable to add row:", err)
 	}
+	return iter
 
 }
 
 func main() {
+	var err error
+
+	log.Printf("Запуск PotBS_LangUI, версия: %s\n", version)
+
+	// Загрузка настроек
+	cfg, err = ini.LooseLoad(cfgFile)
+	if err != nil {
+		log.Fatalf("Fail to read file: %v", err)
+	}
 
 	// Create a new application.
 	application, err := gtk.ApplicationNew(appId, glib.APPLICATION_FLAGS_NONE)
@@ -135,23 +153,51 @@ func main() {
 		win.Window.Connect("destroy", func() {
 			application.Quit()
 		})
+		//Сохранение настроек при закрытии окна
+		win.Window.Connect("delete-event", func() {
+			w, h := win.Window.GetSize()
+			cfg.Section("Main").Key("width").SetValue(strconv.Itoa(w))
+			cfg.Section("Main").Key("height").SetValue(strconv.Itoa(h))
+
+			x, y := win.Window.GetPosition()
+			cfg.Section("Main").Key("posX").SetValue(strconv.Itoa(x))
+			cfg.Section("Main").Key("posY").SetValue(strconv.Itoa(y))
+
+			cfg.Section("Main").Key("Patch").SetValue(win.FilePatch)
+
+			w, h = dialog.Window.GetSize()
+			cfg.Section("Translate").Key("width").SetValue(strconv.Itoa(w))
+			cfg.Section("Translate").Key("height").SetValue(strconv.Itoa(h))
+
+			//x, y = dialog.Window.GetPosition()
+			//cfg.Section("Translate").Key("posX").SetValue(strconv.Itoa(x))
+			//cfg.Section("Translate").Key("posY").SetValue(strconv.Itoa(y))
+
+			cfg.SaveTo(cfgFile)
+		})
 
 		win.BtnDown.Connect("clicked", func() {
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchNext(searchtext)
-			win.TreeView.SetCursor(patch, nil, false)
+			if patch != nil {
+				win.TreeView.SetCursor(patch, nil, false)
+			}
 		})
 
 		win.BtnUp.Connect("clicked", func() {
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchPrev(searchtext)
-			win.TreeView.SetCursor(patch, nil, false)
+			if patch != nil {
+				win.TreeView.SetCursor(patch, nil, false)
+			}
 		})
 
 		win.Search.Connect("search-changed", func() {
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchNext(searchtext)
-			win.TreeView.SetCursor(patch, nil, false)
+			if patch != nil {
+				win.TreeView.SetCursor(patch, nil, false)
+			}
 		})
 
 		win.BtnClose.Connect("clicked", func() {
@@ -162,7 +208,7 @@ func main() {
 			win.lineSelected(dialog)
 		})
 
-		//Сигналы dialog_translite
+		//Сигналы dialog_translate
 		dialog.BtnCancel.Connect("clicked", func() {
 			dialog.Window.Hide()
 		})
@@ -170,10 +216,16 @@ func main() {
 		dialog.BtnOk.Connect("clicked", func() {
 			txt, err := dialog.BufferRu.GetText(dialog.BufferRu.GetStartIter(), dialog.BufferRu.GetEndIter(), true)
 			errorCheck(err)
-
 			win.ListStore.SetValue(win.Iterator, columnRU, txt)
 			dialog.Window.Hide()
 		})
+
+		// ### применяем настроки
+		win.Window.Resize(cfg.Section("Main").Key("width").MustInt(600), cfg.Section("Main").Key("height").MustInt(600))
+		win.Window.Move(cfg.Section("Main").Key("posX").MustInt(0), cfg.Section("Main").Key("posY").MustInt(0))
+
+		dialog.Window.Resize(cfg.Section("Translate").Key("width").MustInt(900), cfg.Section("Translate").Key("height").MustInt(300))
+		//dialog.Window.Move(cfg.Section("Translate").Key("posX").MustInt(0), cfg.Section("Translate").Key("posY").MustInt(0))
 
 		// #########################################
 		// Загружаем файлы перевода
@@ -211,16 +263,15 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.TreeView = gtkutils.GetTreeView(b, "treeview")
 	win.ListStore = gtkutils.GetListStore(b, "liststore")
 	win.LineSelection = gtkutils.GetTreeSelection(b, "LineSelection")
+	//win.Filter = gtkutils.GetTreeModelFilter(b, "treemodelfilter")
 	win.Renderer_ru = gtkutils.GetCellRendererText(b, "renderer_ru")
 
 	win.Search = gtkutils.GetSearchEntry(b, "entry_search")
+	win.Search_Full = gtkutils.GetCheckButton(b, "chk_full")
 
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
 	win.ToolBtnTmpl = gtkutils.GetToolButton(b, "tool_btn_tmpl")
-	win.ToolSwitchDir = gtkutils.GetToggleToolButton(b, "tool_switch_dir")
-	//win.ToolSwitchDir.SetActive(true)
-	win.ToolSwitchCopyBuf = gtkutils.GetToggleToolButton(b, "tool_switch_copy_buf")
 
 	win.BtnClose = gtkutils.GetButton(b, "button_close")
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
@@ -239,9 +290,9 @@ func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 	dialog.Window.Connect("close", func() {
 		dialog.Window.Hide()
 	})
-	dialog.Window.Connect("destroy", func() {
-		dialog.Window.Hide()
-	})
+	// dialog.Window.Connect("delete-event", func() {
+	// 	dialog.Window.Hide()
+	// })
 
 	//Убираем кнопку "Закрыть(X)"
 	dialog.Window.SetDeletable(false)
@@ -268,9 +319,7 @@ func (win *MainWindow) loadFiles() {
 	DataALL := make(map[string]Tlang)
 
 	// Load EN
-	if test {
-		win.FilePatch = "/home/mks/Pirates of the Burning Sea/locale"
-	}
+	win.FilePatch = cfg.Section("Main").Key("Patch").MustString("")
 
 	win.getFileName("Выберите исходный файл для перевода")
 
@@ -332,8 +381,9 @@ func (win *MainWindow) loadFiles() {
 
 	//Выводим в таблицу
 	for _, line := range lines {
-		addRow(win.ListStore, line.id, line.mode, line.en, line.ru)
+		win.EndIterator = *addRow(win.ListStore, line.id, line.mode, line.en, line.ru)
 	}
+
 	//color := *gdk.NewRGBA(239,41,41)
 	//win.Renderer_ru.SetProperty("background-rgba", win.ListStore.GetColumnType(columnRuColor))
 
@@ -355,7 +405,7 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Выберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
-	native.SetCurrentFolder(win.FilePatch)
+	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
 	native.SetCurrentName("out.dat")
 	resp := native.Run()
 
@@ -370,10 +420,33 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	wintmpl := tmpl.TmplWindowCreate()
 
+	wintmpl.Window.Resize(cfg.Section("Template").Key("width").MustInt(900), cfg.Section("Template").Key("height").MustInt(400))
+	wintmpl.Window.Move(cfg.Section("Template").Key("posX").MustInt(0), cfg.Section("Template").Key("posY").MustInt(0))
+
 	wintmpl.BtnSave.Connect("clicked", func() {
 		TmplList = wintmpl.GetTmpls()
+
+		// Сортируем от ольшего совпадения к меньшему
+		sort.SliceStable(TmplList, func(i, j int) bool {
+			before := len(TmplList[i].En)
+			next := len(TmplList[j].En)
+			return before > next
+		})
+
 		tmpl.SaveTmplToFile(TmplList, tmplFile)
-		wintmpl.Window.Destroy()
+
+		wintmpl.Window.Close()
+	})
+	//Сохранение настроек при закрытии окна
+	wintmpl.Window.Connect("delete-event", func() {
+		w, h := wintmpl.Window.GetSize()
+		cfg.Section("Template").Key("width").SetValue(strconv.Itoa(w))
+		cfg.Section("Template").Key("height").SetValue(strconv.Itoa(h))
+
+		x, y := wintmpl.Window.GetPosition()
+		cfg.Section("Template").Key("posX").SetValue(strconv.Itoa(x))
+		cfg.Section("Template").Key("posY").SetValue(strconv.Itoa(y))
+		cfg.SaveTo(cfgFile)
 	})
 
 	//wintmpl.Window.SetParent(win.Window)
@@ -415,7 +488,11 @@ func (win *MainWindow) getFileName(title string) {
 	native.Destroy()
 }
 
+// Сохраняем перевод
 func savedatfile(win *MainWindow, outfile string) {
+	var sum_all, sum_ru int //Подсчет % перевода
+	sum_all = 0
+	sum_ru = 0
 
 	var line potbs.TData
 	outdata := make([]potbs.TData, 0)
@@ -439,17 +516,31 @@ func savedatfile(win *MainWindow, outfile string) {
 			line.Text, _ = valueRu.GetString()
 		}
 
-		// Если русского перевода нет, а в англиском текст есть, не записываем
-		//if len(line.Text) == 0 {
-		if line.Text == "" {
-			valueEn, err := win.ListStore.GetValue(iter, columnEN)
-			errorCheck(err)
-			val, _ := valueEn.GetString()
-			//if len(val) > 0 && line.Mode != "ucdn" {
-			if val != "" && line.Mode != "ucdn" {
-				next = win.ListStore.IterNext(iter)
-				continue
+		//Подсчет % перевода
+		if line.Mode != "ucdn" {
+			sum_all += 1
+			if line.Text != "" {
+				sum_ru += 1
 			}
+		}
+
+		// // Если русского перевода нет, а в англиском текст есть, не записываем
+		// //if len(line.Text) == 0 {
+		// if line.Text == "" {
+		// 	valueEn, err := win.ListStore.GetValue(iter, columnEN)
+		// 	errorCheck(err)
+		// 	val, _ := valueEn.GetString()
+		// 	//if len(val) > 0 && line.Mode != "ucdn" {
+		// 	if val != "" && line.Mode != "ucdn" {
+		// 		next = win.ListStore.IterNext(iter)
+		// 		continue
+		// 	}
+		// }
+
+		// Если русского перевода нет, и это текстовая строка (ucdt), пропускаем
+		if line.Text == "" && line.Mode == "ucdt" {
+			next = win.ListStore.IterNext(iter)
+			continue
 		}
 
 		outdata = append(outdata, line)
@@ -460,13 +551,14 @@ func savedatfile(win *MainWindow, outfile string) {
 
 	dirs := potbs.SaveDat(outfile, outdata)
 
-	if win.ToolSwitchDir.GetActive() {
-		patch, file := filepath.Split(outfile)
-		potbs.SaveDir(patch+str.TrimSuffix(file, filepath.Ext(file))+".dir", dirs)
-	}
+	// Создаем dir файл
+	patch, file := filepath.Split(outfile)
+	potbs.SaveDir(patch+str.TrimSuffix(file, filepath.Ext(file))+".dir", dirs)
 
+	log.Printf("Переведено %d из %d (%d%s)", sum_ru, sum_all, int((sum_ru*100)/sum_all), "%")
 }
 
+// Заполнение окна с переводом при клике на строку
 func (win *MainWindow) lineSelected(dialog *DialogWindow) {
 	_, win.Iterator, _ = win.LineSelection.GetSelected()
 
@@ -488,18 +580,15 @@ func (win *MainWindow) lineSelected(dialog *DialogWindow) {
 	errorCheck(err)
 	dialog.Label.SetText(strID)
 
-	if win.ToolSwitchCopyBuf.GetActive() {
-		clip, _ := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
-		clip.SetText(strID + "\t" + strEN + "\t")
-	}
-
-	dialog.Window.Run()
+	//dialog.Window.Run()
+	dialog.Window.Show()
 
 }
 
+// Прямой поиск
 func (win *MainWindow) searchNext(text string) *gtk.TreePath {
+
 	var loop int
-	var next bool
 
 	_, iter, ok := win.LineSelection.GetSelected()
 	if !ok {
@@ -509,11 +598,18 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 	searchtext := str.ToUpper(text)
 	loop = 1
 	for loop < 3 {
-		next = win.ListStore.IterNext(iter)
-		if !next {
+
+		// Берем следующую строку, если ее нет, значит дошли до конца - переходим к первой
+		if !win.ListStore.IterNext(iter) {
 			iter, _ = win.ListStore.GetIterFirst()
 			loop += 1
 		}
+
+		if !win.ListStore.IterIsValid(iter) {
+			log.Println("Warn: неверный итератор")
+			continue
+		}
+
 		valueId, err := win.ListStore.GetValue(iter, columnID)
 		errorCheck(err)
 		valueEn, err := win.ListStore.GetValue(iter, columnEN)
@@ -525,37 +621,57 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 		En, _ := valueEn.GetString()
 		Ru, _ := valueRu.GetString()
 
-		if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
+		if win.Search_Full.GetActive() {
+			if str.ToUpper(Id) == searchtext || str.ToUpper(En) == searchtext || str.ToUpper(Ru) == searchtext {
 
-			patch, err := win.ListStore.GetPath(iter)
-			errorCheck(err)
+				patch, err := win.ListStore.GetPath(iter)
+				errorCheck(err)
 
-			loop = 100
+				loop = 100
 
-			return patch
+				return patch
+			}
+
+		} else {
+			if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
+
+				patch, err := win.ListStore.GetPath(iter)
+				errorCheck(err)
+
+				loop = 100
+
+				return patch
+			}
+
 		}
-
 	}
+	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
 
+// Обратный поиск
 func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
-	var loop int
-	var prev bool
 
 	_, iter, ok := win.LineSelection.GetSelected()
 	if !ok {
-		iter, _ = win.ListStore.GetIterFirst()
+		*iter = win.EndIterator
 	}
 
 	searchtext := str.ToUpper(text)
-	loop = 1
+	loop := 1
 	for loop < 3 {
-		prev = win.ListStore.IterPrevious(iter)
-		if !prev {
-			iter, _ = win.ListStore.GetIterFirst()
+		// Берем предыдущую строку, если ее нет, значит дошли до начала - переходим к последнему итератору
+		if !win.ListStore.IterPrevious(iter) {
+			*iter = win.EndIterator
 			loop += 1
 		}
+
+		if !win.ListStore.IterIsValid(iter) {
+			log.Println("Warn: неверный итератор")
+			continue
+		}
+
+		// Получаем значения полей
 		valueId, err := win.ListStore.GetValue(iter, columnID)
 		errorCheck(err)
 		valueEn, err := win.ListStore.GetValue(iter, columnEN)
@@ -567,17 +683,33 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 		En, _ := valueEn.GetString()
 		Ru, _ := valueRu.GetString()
 
-		if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
+		// Сравниваем значения полей с поисковой фразой
+		if win.Search_Full.GetActive() {
+			// Полное сравнение
+			if str.ToUpper(Id) == searchtext || str.ToUpper(En) == searchtext || str.ToUpper(Ru) == searchtext {
 
-			patch, err := win.ListStore.GetPath(iter)
-			errorCheck(err)
+				patch, err := win.ListStore.GetPath(iter)
+				errorCheck(err)
 
-			loop = 100
+				loop = 100
 
-			return patch
+				return patch
+			}
+		} else {
+			// Сравнение по совпадению
+			if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
+
+				patch, err := win.ListStore.GetPath(iter)
+				errorCheck(err)
+
+				loop = 100
+
+				return patch
+			}
 		}
 
 	}
+	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
 

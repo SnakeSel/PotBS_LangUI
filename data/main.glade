@@ -33,39 +33,55 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <child>
+                  <object class="GtkLabel" id="id_label">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">id:</property>
+                    <property name="width_chars">3</property>
+                    <property name="max_width_chars">3</property>
+                    <property name="track_visited_links">False</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">False</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
                   <object class="GtkLabel" id="dialog_label">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">7987916477</property>
+                    <property name="label" translatable="yes">79879164</property>
                     <property name="selectable">True</property>
                     <property name="track_visited_links">False</property>
                   </object>
                   <packing>
                     <property name="expand">True</property>
                     <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkButton" id="dialog_btn_tmpl_run">
-                    <property name="label" translatable="yes">Из шаблона</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <property name="tooltip_text" translatable="yes">Заменить текст из шаблона</property>
-                    <signal name="clicked" handler="dialog_btn_tmpl_run_clicked" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">False</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
               </object>
               <packing>
                 <property name="expand">True</property>
-                <property name="fill">True</property>
+                <property name="fill">False</property>
                 <property name="position">0</property>
+                <property name="secondary">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="dialog_btn_tmpl_run">
+                <property name="label" translatable="yes">Из шаблона</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="tooltip_text" translatable="yes">Заменить текст из шаблона</property>
+                <signal name="clicked" handler="dialog_btn_tmpl_run_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
               </packing>
             </child>
             <child>
@@ -74,10 +90,11 @@
                 <property name="can_focus">False</property>
               </object>
               <packing>
-                <property name="expand">True</property>
+                <property name="expand">False</property>
                 <property name="fill">True</property>
                 <property name="padding">10</property>
-                <property name="position">1</property>
+                <property name="position">3</property>
+                <property name="non_homogeneous">True</property>
               </packing>
             </child>
             <child>
@@ -90,7 +107,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">False</property>
-                <property name="position">2</property>
+                <property name="position">4</property>
               </packing>
             </child>
             <child>
@@ -103,13 +120,13 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">False</property>
-                <property name="position">3</property>
+                <property name="position">5</property>
               </packing>
             </child>
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">False</property>
+            <property name="fill">True</property>
             <property name="pack_type">end</property>
             <property name="position">0</property>
           </packing>
@@ -177,10 +194,8 @@
   </object>
   <object class="GtkWindow" id="window_main">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">Утилита перевода PotBS</property>
+    <property name="title" translatable="yes">Перевод PotBS</property>
     <property name="window_position">center-on-parent</property>
-    <property name="default_width">1000</property>
-    <property name="default_height">800</property>
     <property name="has_resize_grip">True</property>
     <child>
       <placeholder/>
@@ -200,7 +215,7 @@
               <object class="GtkToolButton" id="tool_btn_save">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Перезаписать RU</property>
+                <property name="label" translatable="yes">Сохранить</property>
                 <signal name="clicked" handler="main_btn_save_clicked" swapped="no"/>
               </object>
               <packing>
@@ -236,43 +251,6 @@
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Шаблоны</property>
                 <signal name="clicked" handler="main_btn_tmpl_clicked" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSeparatorToolItem">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToggleToolButton" id="tool_switch_copy_buf">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Копировать в буфер обмена
-ID и оригинальный текст 
-при открытии строки с переводом</property>
-                <property name="label" translatable="yes">Коп. в буфер</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToggleToolButton" id="tool_switch_dir">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Создавать DIR файл при сохранении</property>
-                <property name="label" translatable="yes">Создать DIR</property>
-                <property name="active">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -409,6 +387,20 @@ ID и оригинальный текст
               </packing>
             </child>
             <child>
+              <object class="GtkCheckButton" id="chk_full">
+                <property name="label" translatable="yes">Полное</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">False</property>
+                <property name="draw_indicator">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkBox">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -444,7 +436,7 @@ ID и оригинальный текст
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">3</property>
+                <property name="position">4</property>
               </packing>
             </child>
           </object>

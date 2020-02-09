@@ -260,6 +260,17 @@ func GetTextView(b *gtk.Builder, id string) (el *gtk.TextView) {
 	return
 }
 
+func GetTreeModelFilter(b *gtk.Builder, id string) (el *gtk.TreeModelFilter) {
+	obj, e := b.GetObject(id)
+	if e != nil {
+		log.Printf("TreeModelFilter error: %s", e)
+		return nil
+	}
+
+	el, _ = obj.(*gtk.TreeModelFilter)
+	return
+}
+
 func GetFilterValues(entryKeyword *gtk.Entry, cmbBoxRepo *gtk.ComboBox, cmbBoxLang *gtk.ComboBox,
 	chckBtnInstalled *gtk.CheckButton) (keywordP, repoP, langP *string, onlyInstalled bool) {
 	var e error

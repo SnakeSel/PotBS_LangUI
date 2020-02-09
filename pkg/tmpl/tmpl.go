@@ -81,7 +81,7 @@ func TmplWindowCreate() *TmplWindow {
 	win.BtnDel = gtkutils.GetButton(b, "tmpl_btn_del")
 
 	win.BtnClose.Connect("clicked", func() {
-		win.Window.Destroy()
+		win.Window.Close()
 	})
 
 	win.TreeView.Connect("row-activated", func() {
@@ -212,10 +212,10 @@ func (win *TmplWindow) Run(Tmpls []TTmpl) {
 		errorCheck(err)
 
 		if dialog.NewItem {
-			log.Println("Добавляем новую строку")
+			//log.Println("Добавляем новую строку")
 			addRow(win.ListStore, txtEn, txtRu)
 		} else {
-			log.Println("Изменяем строку")
+			//log.Println("Изменяем строку")
 			win.ListStore.SetValue(win.Iterator, columnEN, txtEn)
 			win.ListStore.SetValue(win.Iterator, columnRU, txtRu)
 
