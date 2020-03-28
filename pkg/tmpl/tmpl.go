@@ -42,6 +42,9 @@ type TmplWindow struct {
 	BtnDel   *gtk.Button
 
 	Iterator *gtk.TreeIter
+
+	Col_SourceLang *gtk.TreeViewColumn
+	Col_TargetLang *gtk.TreeViewColumn
 }
 
 type DialogWindow struct {
@@ -79,6 +82,8 @@ func TmplWindowCreate() *TmplWindow {
 	win.BtnSave = gtkutils.GetButton(b, "tmpl_btn_save")
 	win.BtnAdd = gtkutils.GetButton(b, "tmpl_btn_add")
 	win.BtnDel = gtkutils.GetButton(b, "tmpl_btn_del")
+	win.Col_SourceLang = gtkutils.GetTreeViewColumn(b, "tmpl_Col_SourceLang")
+	win.Col_TargetLang = gtkutils.GetTreeViewColumn(b, "tmpl_Col_TargetLang")
 
 	win.BtnClose.Connect("clicked", func() {
 		win.Window.Close()
@@ -145,7 +150,7 @@ func LoadTmplFromFile(patch string) []TTmpl {
 
 	if _, err := os.Stat(patch); err != nil {
 		if os.IsNotExist(err) {
-			// Файл не найдет, возвращаем пустой список
+			log.Printf("Файл шаблонов %s не найден.\n", patch)
 			return Tmpls
 		} else {
 			log.Println("Неизвестная ошибки при открытии шаблонов")

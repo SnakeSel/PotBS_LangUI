@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.22.1 -->
+<!-- Generated with glade 3.22.2 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <object class="GtkDialog" id="tmpl_dialog">
@@ -10,7 +10,7 @@
     <property name="default_height">120</property>
     <property name="destroy_with_parent">True</property>
     <property name="type_hint">dialog</property>
-    <child>
+    <child type="titlebar">
       <placeholder/>
     </child>
     <child internal-child="vbox">
@@ -111,7 +111,7 @@
     <property name="window_position">center-on-parent</property>
     <property name="default_width">900</property>
     <property name="default_height">500</property>
-    <child>
+    <child type="titlebar">
       <placeholder/>
     </child>
     <child>
@@ -154,7 +154,7 @@
                       <object class="GtkTreeSelection" id="tmpl_lineSelection"/>
                     </child>
                     <child>
-                      <object class="GtkTreeViewColumn">
+                      <object class="GtkTreeViewColumn" id="tmpl_Col_SourceLang">
                         <property name="resizable">True</property>
                         <property name="sizing">autosize</property>
                         <property name="max_width">200</property>
@@ -169,7 +169,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkTreeViewColumn">
+                      <object class="GtkTreeViewColumn" id="tmpl_Col_TargetLang">
                         <property name="resizable">True</property>
                         <property name="sizing">autosize</property>
                         <property name="max_width">200</property>

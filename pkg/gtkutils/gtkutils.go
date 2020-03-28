@@ -62,6 +62,17 @@ func GetTreeView(b *gtk.Builder, id string) (treeView *gtk.TreeView) {
 	return
 }
 
+func GetTreeViewColumn(b *gtk.Builder, id string) (treeViewColumn *gtk.TreeViewColumn) {
+	obj, e := b.GetObject(id)
+	if e != nil {
+		log.Printf("Tree view error: %s", e)
+		return nil
+	}
+
+	treeViewColumn, _ = obj.(*gtk.TreeViewColumn)
+	return
+}
+
 func GetLabel(b *gtk.Builder, id string) (treeView *gtk.Label) {
 	obj, e := b.GetObject(id)
 	if e != nil {

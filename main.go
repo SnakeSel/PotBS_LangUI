@@ -9,6 +9,8 @@ import (
 	"snakesel/PotBS_LangUI/pkg/potbs"
 	"snakesel/PotBS_LangUI/pkg/tmpl"
 
+	tr "github.com/bas24/googletranslatefree"
+
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -24,15 +26,24 @@ import (
 )
 
 const (
-	version   = "20200209"
+	version   = "20200328"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
-	tmplFile  = "data/tmpl"
+	tmplPatch = "data/tmpl"
 	cfgFile   = "data/cfg.ini"
 )
 
 var TmplList []tmpl.TTmpl
 var cfg *ini.File
+
+// Временные переменные доступные во всех окнах
+type tEnv struct {
+	sourceLang string // исходный язык для перевода
+	targetLang string // на какой будем переводить
+	tmplFile   string // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
+}
+
+var env tEnv
 
 // IDs to access the tree view columns by
 const (
@@ -91,6 +102,7 @@ type DialogWindow struct {
 	BtnCancel  *gtk.Button
 	BtnOk      *gtk.Button
 	BtnTmplRun *gtk.Button
+	BtnGooglTr *gtk.Button
 
 	Label *gtk.Label
 }
@@ -142,10 +154,11 @@ func main() {
 		// Map the handlers to callback functions, and connect the signals
 		// to the Builder.
 		signals := map[string]interface{}{
-			"main_btn_save_clicked":       win.ToolBtnSave_clicked,
-			"main_btn_saveas_clicked":     win.ToolBtnSaveAs_clicked,
-			"main_btn_tmpl_clicked":       win.ToolBtnTmpl_clicked,
-			"dialog_btn_tmpl_run_clicked": dialog.BtnTmplRun_clicked,
+			"main_btn_save_clicked":        win.ToolBtnSave_clicked,
+			"main_btn_saveas_clicked":      win.ToolBtnSaveAs_clicked,
+			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
+			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
+			"dialog_btn_google_tr_clicked": dialog.BtnGoogleTr_clicked,
 		}
 		b.ConnectSignals(signals)
 
@@ -231,8 +244,9 @@ func main() {
 		// Загружаем файлы перевода
 		win.loadFiles()
 
+		env.tmplFile = tmplPatch + "_" + env.sourceLang + "-" + env.targetLang
 		// Загружаем шаблоны
-		TmplList = tmpl.LoadTmplFromFile(tmplFile)
+		TmplList = tmpl.LoadTmplFromFile(env.tmplFile)
 
 		// Отображаем все виджеты в окне
 		win.Window.Show()
@@ -307,6 +321,7 @@ func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 	dialog.BtnCancel = gtkutils.GetButton(b, "dialog_btn_cancel")
 	dialog.BtnOk = gtkutils.GetButton(b, "dialog_btn_ok")
 	dialog.BtnTmplRun = gtkutils.GetButton(b, "dialog_btn_tmpl_run")
+	dialog.BtnGooglTr = gtkutils.GetButton(b, "dialog_btn_googletr")
 
 	dialog.Label = gtkutils.GetLabel(b, "dialog_label")
 
@@ -318,7 +333,7 @@ func (win *MainWindow) loadFiles() {
 	var lang Tlang
 	DataALL := make(map[string]Tlang)
 
-	// Load EN
+	// Load source Lang
 	win.FilePatch = cfg.Section("Main").Key("Patch").MustString("")
 
 	win.getFileName("Выберите исходный файл для перевода")
@@ -338,9 +353,11 @@ func (win *MainWindow) loadFiles() {
 			DataALL[line.Id+line.Mode] = lang
 		}
 	}
+	env.sourceLang = str.ToUpper(filepath.Base(win.FileName)[0:2]) //Добавить проверки
+
 	log.Printf("%s успешно загружен", filepath.Base(win.FileName))
 
-	// Load RU
+	// Load target Lang
 	win.getFileName("Выберите Русский файл")
 
 	Data = potbs.ReadDat(win.FileName)
@@ -364,6 +381,8 @@ func (win *MainWindow) loadFiles() {
 			tmpmap[line.Id+line.Mode] = true
 		}
 	}
+	env.targetLang = str.ToUpper(filepath.Base(win.FileName)[0:2]) //Добавить проверки
+
 	log.Printf("%s успешно загружен", filepath.Base(win.FileName))
 
 	//Сортируем
@@ -419,6 +438,8 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	wintmpl := tmpl.TmplWindowCreate()
+	wintmpl.Col_SourceLang.SetTitle(env.sourceLang)
+	wintmpl.Col_TargetLang.SetTitle(env.targetLang)
 
 	wintmpl.Window.Resize(cfg.Section("Template").Key("width").MustInt(900), cfg.Section("Template").Key("height").MustInt(400))
 	wintmpl.Window.Move(cfg.Section("Template").Key("posX").MustInt(0), cfg.Section("Template").Key("posY").MustInt(0))
@@ -433,7 +454,7 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 			return before > next
 		})
 
-		tmpl.SaveTmplToFile(TmplList, tmplFile)
+		tmpl.SaveTmplToFile(TmplList, env.tmplFile)
 
 		wintmpl.Window.Close()
 	})
@@ -724,6 +745,22 @@ func (dialog *DialogWindow) BtnTmplRun_clicked() {
 	}
 
 	dialog.BufferRu.SetText(text)
+
+}
+
+func (dialog *DialogWindow) BtnGoogleTr_clicked() {
+
+	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
+	errorCheck(err)
+
+	for _, line := range TmplList {
+		text = str.ReplaceAll(text, line.En, line.Ru)
+	}
+
+	res, err := tr.Translate(text, env.sourceLang, env.targetLang)
+	errorCheck(err)
+
+	dialog.BufferRu.SetText(res)
 
 }
 
