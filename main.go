@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	version   = "20200328"
+	version   = "20200329"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -36,11 +36,12 @@ const (
 var TmplList []tmpl.TTmpl
 var cfg *ini.File
 
-// Временные переменные доступные во всех окнах
+// Временные переменные доступные во всех функциях
 type tEnv struct {
-	sourceLang string // исходный язык для перевода
-	targetLang string // на какой будем переводить
-	tmplFile   string // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
+	sourceLang         string        // исходный язык для перевода
+	targetLang         string        // на какой будем переводить
+	tmplFile           string        // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
+	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
 }
 
 var env tEnv
@@ -76,6 +77,7 @@ type MainWindow struct {
 
 	Search      *gtk.SearchEntry
 	Search_Full *gtk.CheckButton
+	bnt_filter  *gtk.ToggleButton
 
 	ToolBtnSave   *gtk.ToolButton
 	ToolBtnSaveAs *gtk.ToolButton
@@ -86,8 +88,7 @@ type MainWindow struct {
 	FilePatch string
 	FileName  string
 
-	Iterator    *gtk.TreeIter
-	EndIterator gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
+	Iterator *gtk.TreeIter
 }
 
 type DialogWindow struct {
@@ -108,7 +109,7 @@ type DialogWindow struct {
 }
 
 // Append a row to the list store for the tree view
-func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) *gtk.TreeIter {
+func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 	// Get an iterator for a new row at the end of the list store
 	iter := listStore.Append()
 
@@ -123,7 +124,7 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) *gtk.TreeIter {
 	if err != nil {
 		log.Fatal("Unable to add row:", err)
 	}
-	return iter
+	return err
 
 }
 
@@ -157,6 +158,7 @@ func main() {
 			"main_btn_save_clicked":        win.ToolBtnSave_clicked,
 			"main_btn_saveas_clicked":      win.ToolBtnSaveAs_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
+			"main_btn_filter_clicked":      win.BtnFilter_clicked,
 			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
 			"dialog_btn_google_tr_clicked": dialog.BtnGoogleTr_clicked,
 		}
@@ -229,7 +231,8 @@ func main() {
 		dialog.BtnOk.Connect("clicked", func() {
 			txt, err := dialog.BufferRu.GetText(dialog.BufferRu.GetStartIter(), dialog.BufferRu.GetEndIter(), true)
 			errorCheck(err)
-			win.ListStore.SetValue(win.Iterator, columnRU, txt)
+
+			win.ListStore.SetValue(win.Filter.ConvertIterToChildIter(win.Iterator), columnRU, txt)
 			dialog.Window.Hide()
 		})
 
@@ -248,6 +251,8 @@ func main() {
 		// Загружаем шаблоны
 		TmplList = tmpl.LoadTmplFromFile(env.tmplFile)
 
+		win.Filter.SetVisibleFunc(win.Filter_Clear)
+		win.Filter.Refilter()
 		// Отображаем все виджеты в окне
 		win.Window.Show()
 
@@ -277,11 +282,12 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.TreeView = gtkutils.GetTreeView(b, "treeview")
 	win.ListStore = gtkutils.GetListStore(b, "liststore")
 	win.LineSelection = gtkutils.GetTreeSelection(b, "LineSelection")
-	//win.Filter = gtkutils.GetTreeModelFilter(b, "treemodelfilter")
+	win.Filter = gtkutils.GetTreeModelFilter(b, "treeFilter")
 	win.Renderer_ru = gtkutils.GetCellRendererText(b, "renderer_ru")
 
 	win.Search = gtkutils.GetSearchEntry(b, "entry_search")
 	win.Search_Full = gtkutils.GetCheckButton(b, "chk_full")
+	win.bnt_filter = gtkutils.GetToggleButton(b, "bnt_filter")
 
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
@@ -294,8 +300,9 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	return win
 }
 
+// Окно диалога
 func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
-	// Окно диалога
+
 	dialog := new(DialogWindow)
 
 	obj, err := b.GetObject("dialog_translite")
@@ -400,7 +407,8 @@ func (win *MainWindow) loadFiles() {
 
 	//Выводим в таблицу
 	for _, line := range lines {
-		win.EndIterator = *addRow(win.ListStore, line.id, line.mode, line.en, line.ru)
+		err := addRow(win.ListStore, line.id, line.mode, line.en, line.ru)
+		errorCheck(err)
 	}
 
 	//color := *gdk.NewRGBA(239,41,41)
@@ -431,10 +439,37 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	if resp == int(gtk.RESPONSE_ACCEPT) {
 		log.Println(native.GetFilename())
 		savedatfile(win, native.GetFilename())
-		win.Window.Destroy()
+		//win.Window.Destroy()
 	}
 
 }
+
+func (win *MainWindow) Filter_Clear(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
+
+	if !win.bnt_filter.GetActive() {
+		env.filterChildEndIter = iter
+		return true
+	}
+
+	value, _ := model.GetValue(iter, columnRU)
+	textRU, _ := value.GetString()
+
+	value, _ = model.GetValue(iter, columnEN)
+	textEN, _ := value.GetString()
+
+	if (textRU == "") && (textEN != "") {
+		env.filterChildEndIter = iter
+		return true
+	} else {
+		return false
+	}
+
+}
+
+func (win *MainWindow) BtnFilter_clicked() {
+	win.Filter.Refilter()
+}
+
 func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	wintmpl := tmpl.TmplWindowCreate()
@@ -583,19 +618,22 @@ func savedatfile(win *MainWindow, outfile string) {
 func (win *MainWindow) lineSelected(dialog *DialogWindow) {
 	_, win.Iterator, _ = win.LineSelection.GetSelected()
 
-	value, err := win.ListStore.GetValue(win.Iterator, columnEN)
+	//value, err := win.ListStore.GetValue(win.Iterator, columnEN)
+	value, err := win.Filter.GetValue(win.Iterator, columnEN)
 	errorCheck(err)
 	strEN, err := value.GetString()
 	errorCheck(err)
 	dialog.BufferEn.SetText(strEN)
 
-	value, err = win.ListStore.GetValue(win.Iterator, columnRU)
+	//value, err = win.ListStore.GetValue(win.Iterator, columnRU)
+	value, err = win.Filter.GetValue(win.Iterator, columnRU)
 	errorCheck(err)
 	strRU, err := value.GetString()
 	errorCheck(err)
 	dialog.BufferRu.SetText(strRU)
 
-	value, err = win.ListStore.GetValue(win.Iterator, columnID)
+	//value, err = win.ListStore.GetValue(win.Iterator, columnID)
+	value, err = win.Filter.GetValue(win.Iterator, columnID)
 	errorCheck(err)
 	strID, err := value.GetString()
 	errorCheck(err)
@@ -613,7 +651,8 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 
 	_, iter, ok := win.LineSelection.GetSelected()
 	if !ok {
-		iter, _ = win.ListStore.GetIterFirst()
+		//iter, _ = win.ListStore.GetIterFirst()
+		iter, _ = win.Filter.GetIterFirst()
 	}
 
 	searchtext := str.ToUpper(text)
@@ -621,21 +660,22 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 	for loop < 3 {
 
 		// Берем следующую строку, если ее нет, значит дошли до конца - переходим к первой
-		if !win.ListStore.IterNext(iter) {
-			iter, _ = win.ListStore.GetIterFirst()
+		//if !win.ListStore.IterNext(iter) {
+		if !win.Filter.IterNext(iter) {
+			iter, _ = win.Filter.GetIterFirst()
 			loop += 1
 		}
 
-		if !win.ListStore.IterIsValid(iter) {
-			log.Println("Warn: неверный итератор")
+		if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
+			log.Println("Warn: неверный итератор Next")
 			continue
 		}
 
-		valueId, err := win.ListStore.GetValue(iter, columnID)
+		valueId, err := win.Filter.GetValue(iter, columnID)
 		errorCheck(err)
-		valueEn, err := win.ListStore.GetValue(iter, columnEN)
+		valueEn, err := win.Filter.GetValue(iter, columnEN)
 		errorCheck(err)
-		valueRu, err := win.ListStore.GetValue(iter, columnRU)
+		valueRu, err := win.Filter.GetValue(iter, columnRU)
 		errorCheck(err)
 
 		Id, _ := valueId.GetString()
@@ -645,7 +685,7 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 		if win.Search_Full.GetActive() {
 			if str.ToUpper(Id) == searchtext || str.ToUpper(En) == searchtext || str.ToUpper(Ru) == searchtext {
 
-				patch, err := win.ListStore.GetPath(iter)
+				patch, err := win.Filter.GetPath(iter)
 				errorCheck(err)
 
 				loop = 100
@@ -656,7 +696,7 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 		} else {
 			if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
 
-				patch, err := win.ListStore.GetPath(iter)
+				patch, err := win.Filter.GetPath(iter)
 				errorCheck(err)
 
 				loop = 100
@@ -675,29 +715,31 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 
 	_, iter, ok := win.LineSelection.GetSelected()
 	if !ok {
-		*iter = win.EndIterator
+		//Iter = &win.EndIterator
+		iter, _ = win.Filter.ConvertChildIterToIter(env.filterChildEndIter)
 	}
 
 	searchtext := str.ToUpper(text)
 	loop := 1
 	for loop < 3 {
 		// Берем предыдущую строку, если ее нет, значит дошли до начала - переходим к последнему итератору
-		if !win.ListStore.IterPrevious(iter) {
-			*iter = win.EndIterator
+		if !win.Filter.IterPrevious(iter) {
+			//*Iter = win.EndIterator
+			iter, _ = win.Filter.ConvertChildIterToIter(env.filterChildEndIter)
 			loop += 1
 		}
 
-		if !win.ListStore.IterIsValid(iter) {
-			log.Println("Warn: неверный итератор")
+		if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
+			log.Println("Warn: неверный итератор Prev")
 			continue
 		}
 
 		// Получаем значения полей
-		valueId, err := win.ListStore.GetValue(iter, columnID)
+		valueId, err := win.Filter.GetValue(iter, columnID)
 		errorCheck(err)
-		valueEn, err := win.ListStore.GetValue(iter, columnEN)
+		valueEn, err := win.Filter.GetValue(iter, columnEN)
 		errorCheck(err)
-		valueRu, err := win.ListStore.GetValue(iter, columnRU)
+		valueRu, err := win.Filter.GetValue(iter, columnRU)
 		errorCheck(err)
 
 		Id, _ := valueId.GetString()
@@ -709,7 +751,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 			// Полное сравнение
 			if str.ToUpper(Id) == searchtext || str.ToUpper(En) == searchtext || str.ToUpper(Ru) == searchtext {
 
-				patch, err := win.ListStore.GetPath(iter)
+				patch, err := win.Filter.GetPath(iter)
 				errorCheck(err)
 
 				loop = 100
@@ -720,7 +762,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 			// Сравнение по совпадению
 			if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
 
-				patch, err := win.ListStore.GetPath(iter)
+				patch, err := win.Filter.GetPath(iter)
 				errorCheck(err)
 
 				loop = 100
@@ -748,15 +790,18 @@ func (dialog *DialogWindow) BtnTmplRun_clicked() {
 
 }
 
+// Переводим текст через Google Translate
 func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 
 	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
 	errorCheck(err)
 
+	// Заменяем текст оригинала по шаблонам. Для более точного перевода
 	for _, line := range TmplList {
 		text = str.ReplaceAll(text, line.En, line.Ru)
 	}
 
+	// отправляем в гугл
 	res, err := tr.Translate(text, env.sourceLang, env.targetLang)
 	errorCheck(err)
 
