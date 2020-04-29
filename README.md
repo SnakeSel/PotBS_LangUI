@@ -1,9 +1,12 @@
 # PotBS_LangUI
-Графическая программа для перевода языковых файлов игры "Корсары Онлайн: Pirates of the burning sea".
+Графическая программа для перевода языковых файлов игры "Корсары Онлайн: Pirates of the burning sea".  
 Написана на [Go](https://golang.org/) с использованием [gotk3](https://github.com/gotk3/gotk3)
+* При сохранении DAT файла перевода формирует для него DIR файл.
+* Поддерживает шаблоны переводов.
+* Поддержка Google Translate.
 ![](screen/main.png)
 ## Install
-Скачать [актуальный релиз](https://github.com/SnakeSel/PotBS_LangUI/releases) 
+Скачать [актуальный релиз](https://github.com/SnakeSel/PotBS_LangUI/releases)  
 Распаковать архив и запустить:
 - Windows: `Win64Run.bat`
 - Linux: `./PotBS_LangUI`
