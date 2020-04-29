@@ -5,9 +5,9 @@ package main
 import (
 	"log"
 
-	"snakesel/PotBS_LangUI/pkg/gtkutils"
-	"snakesel/PotBS_LangUI/pkg/potbs"
-	"snakesel/PotBS_LangUI/pkg/tmpl"
+	"github.com/snakesel/PotBS_LangUI/pkg/gtkutils"
+	"github.com/snakesel/PotBS_LangUI/pkg/potbs"
+	"github.com/snakesel/PotBS_LangUI/pkg/tmpl"
 
 	tr "github.com/bas24/googletranslatefree"
 
