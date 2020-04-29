@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"github.com/snakesel/PotBS_LangUI/pkg/gtkutils"
+	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	str "strings"
 
 	"github.com/gotk3/gotk3/gtk"
