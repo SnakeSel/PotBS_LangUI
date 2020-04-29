@@ -5,202 +5,12 @@
   <object class="GtkImage" id="GoogleTranlateImg">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="tooltip_text" translatable="yes">Перевести через Google Tranlate</property>
+    <property name="tooltip_text" translatable="yes">Перевести через Google Tranlate
+Translate via Google Translate</property>
     <property name="pixbuf">google-translate-icon_16.png</property>
   </object>
   <object class="GtkTextBuffer" id="dialog_buffer_en"/>
   <object class="GtkTextBuffer" id="dialog_buffer_ru"/>
-  <object class="GtkDialog" id="dialog_translite">
-    <property name="can_focus">False</property>
-    <property name="no_show_all">True</property>
-    <property name="title" translatable="yes">Перевод</property>
-    <property name="modal">True</property>
-    <property name="window_position">center-on-parent</property>
-    <property name="default_width">600</property>
-    <property name="default_height">400</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="type_hint">normal</property>
-    <property name="gravity">north-east</property>
-    <property name="has_resize_grip">True</property>
-    <child type="titlebar">
-      <placeholder/>
-    </child>
-    <child internal-child="vbox">
-      <object class="GtkBox">
-        <property name="can_focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">2</property>
-        <child internal-child="action_area">
-          <object class="GtkButtonBox">
-            <property name="can_focus">False</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkBox">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <child>
-                  <object class="GtkLabel" id="id_label">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">id:</property>
-                    <property name="width_chars">3</property>
-                    <property name="max_width_chars">3</property>
-                    <property name="track_visited_links">False</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">False</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="dialog_label">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">79879164</property>
-                    <property name="selectable">True</property>
-                    <property name="track_visited_links">False</property>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">1</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">False</property>
-                <property name="position">0</property>
-                <property name="secondary">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="dialog_btn_tmpl_run">
-                <property name="label" translatable="yes">Из шаблона</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="tooltip_text" translatable="yes">Заменить текст из шаблона</property>
-                <signal name="clicked" handler="dialog_btn_tmpl_run_clicked" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="dialog_btn_googletr">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="tooltip_text" translatable="yes">Перевести через Google Tranlate</property>
-                <property name="image">GoogleTranlateImg</property>
-                <property name="always_show_image">True</property>
-                <signal name="clicked" handler="dialog_btn_google_tr_clicked" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">False</property>
-                <property name="position">2</property>
-                <property name="non_homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkSeparator">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="padding">10</property>
-                <property name="position">3</property>
-                <property name="non_homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="dialog_btn_cancel">
-                <property name="label" translatable="yes">cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">False</property>
-                <property name="position">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="dialog_btn_ok">
-                <property name="label" translatable="yes">ok</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">False</property>
-                <property name="position">5</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="pack_type">end</property>
-            <property name="position">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkBox">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="spacing">2</property>
-            <property name="homogeneous">True</property>
-            <child>
-              <object class="GtkTextView" id="dialog_text_en">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="editable">False</property>
-                <property name="wrap_mode">word</property>
-                <property name="buffer">dialog_buffer_en</property>
-                <property name="accepts_tab">False</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">True</property>
-                <property name="padding">1</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkTextView" id="dialog_text_ru">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="wrap_mode">word</property>
-                <property name="buffer">dialog_buffer_ru</property>
-                <property name="accepts_tab">False</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">True</property>
-                <property name="padding">1</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="expand">True</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
   <object class="GtkListStore" id="liststore">
     <columns>
       <!-- column-name id -->
@@ -223,6 +33,7 @@
     <property name="title" translatable="yes">Перевод PotBS</property>
     <property name="window_position">center-on-parent</property>
     <property name="has_resize_grip">True</property>
+    <signal name="delete-event" handler="main_delete-event" swapped="no"/>
     <child type="titlebar">
       <placeholder/>
     </child>
@@ -241,7 +52,10 @@
               <object class="GtkToolButton" id="tool_btn_save">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Сохранить</property>
+                <property name="tooltip_text" translatable="yes">Сохранить</property>
+                <property name="is_important">True</property>
+                <property name="label" translatable="yes">Save</property>
+                <property name="stock_id">gtk-floppy</property>
                 <signal name="clicked" handler="main_btn_save_clicked" swapped="no"/>
               </object>
               <packing>
@@ -253,7 +67,10 @@
               <object class="GtkToolButton" id="tool_btn_saveAs">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Сохранить как</property>
+                <property name="tooltip_text" translatable="yes">Сохранить как</property>
+                <property name="is_important">True</property>
+                <property name="label" translatable="yes">Save as ...</property>
+                <property name="stock_id">gtk-floppy</property>
                 <signal name="clicked" handler="main_btn_saveas_clicked" swapped="no"/>
               </object>
               <packing>
@@ -275,7 +92,10 @@
               <object class="GtkToolButton" id="tool_btn_tmpl">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Шаблоны</property>
+                <property name="tooltip_text" translatable="yes">Шаблоны</property>
+                <property name="is_important">True</property>
+                <property name="label" translatable="yes">Template</property>
+                <property name="stock_id">gtk-spell-check</property>
                 <signal name="clicked" handler="main_btn_tmpl_clicked" swapped="no"/>
               </object>
               <packing>
@@ -375,10 +195,12 @@
             <property name="spacing">2</property>
             <child>
               <object class="GtkButton" id="button_close">
-                <property name="label" translatable="yes">Закрыть</property>
+                <property name="label">gtk-quit</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="tooltip_text" translatable="yes">Exit</property>
+                <property name="use_stock">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -400,10 +222,12 @@
             </child>
             <child>
               <object class="GtkToggleButton" id="bnt_filter">
-                <property name="label" translatable="yes">Без перевода</property>
+                <property name="label" translatable="yes">not translated</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="tooltip_text" translatable="yes">Отфильтровать строки без перевода
+Filter strings without translation</property>
                 <property name="margin_right">10</property>
                 <signal name="clicked" handler="main_btn_filter_clicked" swapped="no"/>
               </object>
@@ -417,6 +241,8 @@
               <object class="GtkSearchEntry" id="entry_search">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="tooltip_text" translatable="yes">Search
+Поиск</property>
                 <property name="primary_icon_name">edit-find-symbolic</property>
                 <property name="primary_icon_activatable">False</property>
                 <property name="primary_icon_sensitive">False</property>
@@ -429,10 +255,12 @@
             </child>
             <child>
               <object class="GtkCheckButton" id="chk_full">
-                <property name="label" translatable="yes">Полное</property>
+                <property name="label" translatable="yes">whole string</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
+                <property name="tooltip_text" translatable="yes">Искать строку целиком
+Search entire string</property>
                 <property name="draw_indicator">True</property>
               </object>
               <packing>
@@ -446,11 +274,12 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <child>
-                  <object class="GtkButton" id="btn_down">
-                    <property name="label">gtk-go-down</property>
+                  <object class="GtkButton" id="btn_up">
+                    <property name="label">gtk-go-up</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
+                    <property name="tooltip_text" translatable="yes">Back</property>
                     <property name="use_stock">True</property>
                   </object>
                   <packing>
@@ -460,11 +289,12 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkButton" id="btn_up">
-                    <property name="label">gtk-go-up</property>
+                  <object class="GtkButton" id="btn_down">
+                    <property name="label">gtk-go-down</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
+                    <property name="tooltip_text" translatable="yes">Next</property>
                     <property name="use_stock">True</property>
                   </object>
                   <packing>
@@ -486,6 +316,201 @@
             <property name="fill">True</property>
             <property name="pack_type">end</property>
             <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkDialog" id="dialog_translite">
+    <property name="can_focus">False</property>
+    <property name="no_show_all">True</property>
+    <property name="title" translatable="yes">Перевод</property>
+    <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="type_hint">normal</property>
+    <property name="skip_taskbar_hint">True</property>
+    <property name="gravity">center</property>
+    <property name="transient_for">window_main</property>
+    <property name="has_resize_grip">True</property>
+    <signal name="destroy-event" handler="dialog_delete-event" swapped="no"/>
+    <child type="titlebar">
+      <placeholder/>
+    </child>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkBox">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkLabel" id="id_label">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">id:</property>
+                    <property name="width_chars">3</property>
+                    <property name="max_width_chars">3</property>
+                    <property name="track_visited_links">False</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">False</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="dialog_label">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">79879164</property>
+                    <property name="selectable">True</property>
+                    <property name="track_visited_links">False</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">False</property>
+                <property name="position">0</property>
+                <property name="secondary">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="dialog_btn_tmpl_run">
+                <property name="label" translatable="yes">From template</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="tooltip_text" translatable="yes">Заменить текст из шаблона</property>
+                <signal name="clicked" handler="dialog_btn_tmpl_run_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="dialog_btn_googletr">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="tooltip_text" translatable="yes">Перевести через Google Tranlate
+Translate via Google Translate</property>
+                <property name="image">GoogleTranlateImg</property>
+                <property name="always_show_image">True</property>
+                <signal name="clicked" handler="dialog_btn_google_tr_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">2</property>
+                <property name="non_homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkSeparator">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="padding">10</property>
+                <property name="position">3</property>
+                <property name="non_homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="dialog_btn_cancel">
+                <property name="label">gtk-cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">False</property>
+                <property name="position">4</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="dialog_btn_ok">
+                <property name="label">gtk-ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">False</property>
+                <property name="position">5</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="spacing">2</property>
+            <property name="homogeneous">True</property>
+            <child>
+              <object class="GtkTextView" id="dialog_text_en">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="editable">False</property>
+                <property name="wrap_mode">word</property>
+                <property name="buffer">dialog_buffer_en</property>
+                <property name="accepts_tab">False</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="padding">1</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkTextView" id="dialog_text_ru">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="wrap_mode">word</property>
+                <property name="buffer">dialog_buffer_ru</property>
+                <property name="accepts_tab">False</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="padding">1</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
           </packing>
         </child>
       </object>

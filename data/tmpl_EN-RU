@@ -8,16 +8,25 @@ This is a captured class-restricted ship, and sailing it will flag you for PvP.<
 This document bears Kidd's seal, and authorizes the construction of a<:>Этот документ скреплен печатью Кидда и дает разрешение на строительство
 This leather-bound volume contains the plans for a<:>Этот отделанный кожей том содержит планы для
 from salvage or capture of unknown origin<:> спасенное или захваченное неизвестно где
+Demi-Culverin Cannon Barrel<:>ствол полу-кулеврины
+Culverin Cannon Barrel<:>ствол кулеврины
 Privateer Fourth Rate<:>Капер IV ранга
+Quarter Cannon Barrel<:>ствол пушки Картуве
 lb Short Iron Cannon<:>-фунтовое короткое железное орудие
+Demi-Culverin Barrel<:>ствол полу-кулеврины
+Minion Cannon Barrel<:>ствол пушки миньон
 lb Long Iron Cannon<:>-фунтовая длинная железная пушка
 Recipe: Mine Copper<:>Рецепт: Добыча меди
+Saker Cannon Barrel<:>ствол балобана
+Royal Cannon Barrel<:>ствол королевской пушки
 Large Logging Camp<:>Большой лагерь лесорубов
+Demi-Cannon Barrel<:>ствол полу-пушки
 Uncertified Deed:<:>Незаверенная купчая:
 Stripped Frigate<:>Облегченный фрегат
 lb Short Cannon<:>-фунтовое короткое орудие
 Recipe: Recruit<:>Рецепт: Набрать
 Pieces of Eight<:>Серебряный Песо
+Culverin Barrel<:>ствол кулеврины
 A prize bronze<:>Призовая бронзовая
 lb Long Cannon<:>-фунтовое длинное орудие
 lb iron cannon<:>-фунтовое железное орудие
@@ -25,8 +34,13 @@ Piece of Eight<:>Серебряный Песо
 Invalid Ship:<:>Запрещенные классы:
 Recipe: Draft<:>Чертеж
 Longleaf Pine<:>Сосна болотная
+Cannon Barrel<:>ствол пушки
+Refine Sulfur<:>Очистить серу
 Prize Bronze<:>Призовое бронзовое
 Sloop-of-war<:>Военный шлюп
+Saker Barrel<:>Балобан
+Gun Carriage<:>лафет
+Smelt Copper<:>Выплавка меди
 Fourth Rate<:>Корабль IV ранга
 Second Rate<:>Корабль II ранга
 lumber mill<:>лесопилка
@@ -56,6 +70,7 @@ saw mill<:>лесопильный завод
 Live Oak<:>Живой дуб
 Mahogany<:>Красное дерево
 Improved<:>Улучшенный
+Charcoal<:>Древ. уголь
 Foundry<:>Литейный завод
 Butcher<:>Мясник
 Foreman<:>Прораб
@@ -72,11 +87,14 @@ Potter<:>Гончар
 Sawyer<:>Пильщик
 Hunter<:>Охотник
 Sabicu<:>Лизилома
+Refine<:>Очистить
 Forge<:>Кузница
 Mason<:>Каменщик
 Baker<:>Пекарь
 Roble<:>Испанский дуб
 Cedar<:>Кедр
+Short<:>Короткий
+Build<:>Произв.
 Writ<:>Поручение
 Deed<:>Купчая
 Logs<:>Бревна
@@ -85,6 +103,9 @@ Pine<:>Сосна
 Teak<:>Тик
 Fill<:>Наполнить
 Sack<:>мешок
+Long<:>Длинный
+Cast<:>Отлить
+Zinc<:>цинк
 Oak<:>Дуб
 Elm<:>Вяз
 Fir<:>Ель

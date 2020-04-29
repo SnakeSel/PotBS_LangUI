@@ -24,10 +24,11 @@
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="tmpl_dlg_btn_cancel">
-                <property name="label" translatable="yes">Cancel</property>
+                <property name="label">gtk-cancel</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -37,10 +38,11 @@
             </child>
             <child>
               <object class="GtkButton" id="tmpl_dlg_btn_ok">
-                <property name="label" translatable="yes">Ok</property>
+                <property name="label">gtk-ok</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -66,7 +68,8 @@
               <object class="GtkEntry" id="tmpl_dlg_entry_en">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="placeholder_text" translatable="yes">Оригинальный текст</property>
+                <property name="tooltip_text" translatable="yes">Original text</property>
+                <property name="placeholder_text" translatable="yes">Оригинальный текст (Original text)</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -78,7 +81,8 @@
               <object class="GtkEntry" id="tmpl_dlg_entry_ru">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="placeholder_text" translatable="yes">Текст для замены</property>
+                <property name="tooltip_text" translatable="yes">Text to replace</property>
+                <property name="placeholder_text" translatable="yes">Текст для замены (Text to replace)</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -123,8 +127,8 @@
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="label" translatable="yes">Шаблоны для замены.
-Текст заменяется с учетом регистра.</property>
+            <property name="label" translatable="yes">Шаблоны для замены (Templates for replacement).
+Текст заменяется с учетом регистра (The text is case sensitive).</property>
             <property name="justify">center</property>
           </object>
           <packing>
@@ -262,10 +266,11 @@
             <property name="layout_style">end</property>
             <child>
               <object class="GtkButton" id="tmpl_btn_close">
-                <property name="label" translatable="yes">Закрыть</property>
+                <property name="label">gtk-close</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -276,10 +281,11 @@
             </child>
             <child>
               <object class="GtkButton" id="tmpl_btn_save">
-                <property name="label" translatable="yes">Сохранить</property>
+                <property name="label">gtk-save</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
               </object>
               <packing>
                 <property name="expand">True</property>

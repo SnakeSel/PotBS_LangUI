@@ -7,7 +7,6 @@ import (
 	"os"
 
 	s "strings"
-	//"unicode/utf8"
 
 	"strconv"
 )
@@ -36,7 +35,7 @@ func dropCR(data []byte) []byte {
 }
 
 // Конец строки в виндовой кодировке (\r\n)
-func ScanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
+func scanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
 	}
@@ -59,7 +58,6 @@ func indexN(str, substr string, n int) int {
 	ind := 0
 	pos := 0
 	for i := 0; i < n; i++ {
-		//fmt.Println(str[pos:])
 		ind = s.Index(str[pos:], substr)
 		if ind == -1 {
 			return ind
@@ -88,18 +86,16 @@ func ReadDat(filepach string) []TData {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	//const begin =  []byte("ï","»","¿")
 
 	var line TData
 	var lineLen int
 	var splitline []string
 
 	// Концом строки считается \r\n
-	scanner.Split(ScanCRLF)
+	scanner.Split(scanCRLF)
 	lineN := 0
 	for scanner.Scan() {
-		// Подсчитваем длину и
-		// разбиваем строку по "\t"
+		// Подсчитваем длину и разбиваем строку по "\t"
 		if lineN == 0 {
 			// Первая строка сожержит заголовок.
 			// Пока просто отбрасываем 6 байт
@@ -194,7 +190,7 @@ func SaveDat(filepach string, Datas []TData) []TDir {
 
 		// Увеличиваем позицию на длину строки + 2 бита на перенос
 		pos += linelen
-		pos += 2
+		pos += 2 //\r\n
 	}
 
 	return dirs

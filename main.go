@@ -16,17 +16,14 @@ import (
 	"strconv"
 	str "strings"
 
-	//	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-
-	//"os"
 
 	"gopkg.in/ini.v1"
 )
 
 const (
-	version   = "20200329"
+	version   = "20200429"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -113,10 +110,6 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 	// Get an iterator for a new row at the end of the list store
 	iter := listStore.Append()
 
-	//color := *gdk.NewRGBA(250, 50, 50, 1)
-	//color.SetColors(250, 80, 80, 1)
-
-	// color.SetColors(0.0, 0.0, 0.0, 0.0)
 	// Set the contents of the list store row that the iterator represents
 	err := listStore.Set(iter,
 		[]int{columnID, columnMode, columnEN, columnRU},
@@ -155,6 +148,7 @@ func main() {
 		// Map the handlers to callback functions, and connect the signals
 		// to the Builder.
 		signals := map[string]interface{}{
+			"main_delete-event":            win.saveCfg, //Сохранение настроек при закрытии окна
 			"main_btn_save_clicked":        win.ToolBtnSave_clicked,
 			"main_btn_saveas_clicked":      win.ToolBtnSaveAs_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
@@ -166,29 +160,8 @@ func main() {
 
 		// Сигналы MainWindow
 		win.Window.Connect("destroy", func() {
+			dialog.saveCfg()
 			application.Quit()
-		})
-		//Сохранение настроек при закрытии окна
-		win.Window.Connect("delete-event", func() {
-			w, h := win.Window.GetSize()
-			cfg.Section("Main").Key("width").SetValue(strconv.Itoa(w))
-			cfg.Section("Main").Key("height").SetValue(strconv.Itoa(h))
-
-			x, y := win.Window.GetPosition()
-			cfg.Section("Main").Key("posX").SetValue(strconv.Itoa(x))
-			cfg.Section("Main").Key("posY").SetValue(strconv.Itoa(y))
-
-			cfg.Section("Main").Key("Patch").SetValue(win.FilePatch)
-
-			w, h = dialog.Window.GetSize()
-			cfg.Section("Translate").Key("width").SetValue(strconv.Itoa(w))
-			cfg.Section("Translate").Key("height").SetValue(strconv.Itoa(h))
-
-			//x, y = dialog.Window.GetPosition()
-			//cfg.Section("Translate").Key("posX").SetValue(strconv.Itoa(x))
-			//cfg.Section("Translate").Key("posY").SetValue(strconv.Itoa(y))
-
-			cfg.SaveTo(cfgFile)
 		})
 
 		win.BtnDown.Connect("clicked", func() {
@@ -241,7 +214,6 @@ func main() {
 		win.Window.Move(cfg.Section("Main").Key("posX").MustInt(0), cfg.Section("Main").Key("posY").MustInt(0))
 
 		dialog.Window.Resize(cfg.Section("Translate").Key("width").MustInt(900), cfg.Section("Translate").Key("height").MustInt(300))
-		//dialog.Window.Move(cfg.Section("Translate").Key("posX").MustInt(0), cfg.Section("Translate").Key("posY").MustInt(0))
 
 		// #########################################
 		// Загружаем файлы перевода
@@ -311,9 +283,6 @@ func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 	dialog.Window.Connect("close", func() {
 		dialog.Window.Hide()
 	})
-	// dialog.Window.Connect("delete-event", func() {
-	// 	dialog.Window.Hide()
-	// })
 
 	//Убираем кнопку "Закрыть(X)"
 	dialog.Window.SetDeletable(false)
@@ -343,7 +312,7 @@ func (win *MainWindow) loadFiles() {
 	// Load source Lang
 	win.FilePatch = cfg.Section("Main").Key("Patch").MustString("")
 
-	win.getFileName("Выберите исходный файл для перевода")
+	win.getFileName("Выберите исходный файл для перевода (Select the source file to translate).")
 
 	Data := potbs.ReadDat(win.FileName)
 	for _, line := range Data {
@@ -352,7 +321,6 @@ func (win *MainWindow) loadFiles() {
 		lang.en = line.Text
 		//DataALL[line.Id+line.Mode] = lang
 
-		//test 2
 		// Проверяем, если уже есть такой id, добавляем _ (т.к. id+mode не уникален)
 		if _, ok := DataALL[line.Id+line.Mode]; ok {
 			DataALL[line.Id+line.Mode+"_"] = lang
@@ -365,7 +333,7 @@ func (win *MainWindow) loadFiles() {
 	log.Printf("%s успешно загружен", filepath.Base(win.FileName))
 
 	// Load target Lang
-	win.getFileName("Выберите Русский файл")
+	win.getFileName("Выберите файл перевода (Select the target file to translate)")
 
 	Data = potbs.ReadDat(win.FileName)
 	tmpmap := make(map[string]bool)
@@ -376,8 +344,7 @@ func (win *MainWindow) loadFiles() {
 		lang.ru = line.Text
 		//DataALL[line.Id+line.Mode] = lang
 
-		//test 2
-		// Проверяем, е5сли уже есть такой id, добавляем _ (т.к. id+mode не уникален)
+		// Проверяем, если уже есть такой id, добавляем _ (т.к. id+mode не уникален)
 		if _, ok := tmpmap[line.Id+line.Mode]; ok {
 			lang.en = DataALL[line.Id+line.Mode+"_"].en
 			DataALL[line.Id+line.Mode+"_"] = lang
@@ -415,6 +382,21 @@ func (win *MainWindow) loadFiles() {
 	//win.Renderer_ru.SetProperty("background-rgba", win.ListStore.GetColumnType(columnRuColor))
 
 	//win.Renderer_ru.SetProperty("background-set", true)
+}
+
+func (win *MainWindow) saveCfg() {
+	//Сохранение настроек
+	w, h := win.Window.GetSize()
+	cfg.Section("Main").Key("width").SetValue(strconv.Itoa(w))
+	cfg.Section("Main").Key("height").SetValue(strconv.Itoa(h))
+
+	x, y := win.Window.GetPosition()
+	cfg.Section("Main").Key("posX").SetValue(strconv.Itoa(x))
+	cfg.Section("Main").Key("posY").SetValue(strconv.Itoa(y))
+
+	cfg.Section("Main").Key("Patch").SetValue(win.FilePatch)
+
+	cfg.SaveTo(cfgFile)
 }
 
 func (win *MainWindow) ToolBtnSave_clicked() {
@@ -618,21 +600,18 @@ func savedatfile(win *MainWindow, outfile string) {
 func (win *MainWindow) lineSelected(dialog *DialogWindow) {
 	_, win.Iterator, _ = win.LineSelection.GetSelected()
 
-	//value, err := win.ListStore.GetValue(win.Iterator, columnEN)
 	value, err := win.Filter.GetValue(win.Iterator, columnEN)
 	errorCheck(err)
 	strEN, err := value.GetString()
 	errorCheck(err)
 	dialog.BufferEn.SetText(strEN)
 
-	//value, err = win.ListStore.GetValue(win.Iterator, columnRU)
 	value, err = win.Filter.GetValue(win.Iterator, columnRU)
 	errorCheck(err)
 	strRU, err := value.GetString()
 	errorCheck(err)
 	dialog.BufferRu.SetText(strRU)
 
-	//value, err = win.ListStore.GetValue(win.Iterator, columnID)
 	value, err = win.Filter.GetValue(win.Iterator, columnID)
 	errorCheck(err)
 	strID, err := value.GetString()
@@ -774,6 +753,17 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 	}
 	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
+}
+
+// Сохранение настроек
+func (dialog *DialogWindow) saveCfg() {
+	w, h := dialog.Window.GetSize()
+	cfg.Section("Translate").Key("width").SetValue(strconv.Itoa(w))
+	cfg.Section("Translate").Key("height").SetValue(strconv.Itoa(h))
+
+	// Позиция всегда по центру родителя. Поэтому ее не сохраняем
+	cfg.SaveTo(cfgFile)
+
 }
 
 // Заменяем текст оригинала по шаблонам
