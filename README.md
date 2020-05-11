@@ -8,8 +8,8 @@
 ## Install
 Скачать [актуальный релиз](https://github.com/SnakeSel/PotBS_LangUI/releases)  
 Распаковать архив и запустить:
-- Windows: `Win64Run.bat`
-- Linux: `./PotBS_LangUI`
+- Windows: `potbs_langui.exe`
+- Linux: `./potbs_langui`
 
 ## Build from sourse
 #### Необходимо установить пакеты разработки GTK3:
@@ -25,6 +25,11 @@ $ go get github.com/snakesel/potbs_langui/
 $ cd $GOPATH/src/github.com/snakesel/potbs_langui/
 ```
 #### Build:
+- Windows:
+```sh
+go build -ldflags -H=windowsgui
+```
+- Linux:
 ```sh
 go build
 ```

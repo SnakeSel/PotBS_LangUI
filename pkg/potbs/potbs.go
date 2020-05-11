@@ -8,6 +8,7 @@ import (
 
 	s "strings"
 
+	"regexp"
 	"strconv"
 )
 
@@ -211,6 +212,34 @@ func SaveDir(filepach string, dirs []TDir) {
 	}
 
 }
+
+func ValidateTranslate(translate string) error {
+
+	//Проверяем перевод макросов
+	re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
+	macros := re_macros.FindAllString(translate, -1)
+	if len(macros) != 0 {
+		for _, str := range macros {
+
+			// True если содержит НЕ Латиницу ( https://github.com/google/re2/wiki/Syntax )
+			//match, _ := regexp.MatchString(`\P{Latin}`, str)
+			// True если содержит кирилицу
+			match, _ := regexp.MatchString(`\p{Cyrillic}`, str)
+			if match {
+				return fmt.Errorf("'%s' - Макросы не нужно переводить.", str)
+			}
+		}
+
+	}
+
+	//Проверяем наличие переносов строки
+	// if s.Contains(translate, "\n") {
+	// 	return fmt.Errorf("Замените перенос строки на символ: \\n")
+	// }
+
+	return nil
+}
+
 func сheckErr(err error, text_opt ...string) {
 	if err != nil {
 		if len(text_opt) > 0 {

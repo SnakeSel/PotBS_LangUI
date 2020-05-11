@@ -19,11 +19,12 @@ import (
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 
+	"github.com/tealeg/xlsx"
 	"gopkg.in/ini.v1"
 )
 
 const (
-	version   = "20200429"
+	version   = "20200511"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -39,6 +40,8 @@ type tEnv struct {
 	targetLang         string        // на какой будем переводить
 	tmplFile           string        // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
 	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
+	FilePatch          string        // Путь к выбранному файлу
+	FileName           string        //
 }
 
 var env tEnv
@@ -53,10 +56,10 @@ const (
 )
 
 type Tlang struct {
-	id   string
-	mode string
-	en   string
-	ru   string
+	id   string `xlsx:"0"`
+	mode string `xlsx:"1"`
+	en   string `xlsx:"2"`
+	ru   string `xlsx:"3"`
 }
 
 type MainWindow struct {
@@ -76,14 +79,13 @@ type MainWindow struct {
 	Search_Full *gtk.CheckButton
 	bnt_filter  *gtk.ToggleButton
 
-	ToolBtnSave   *gtk.ToolButton
-	ToolBtnSaveAs *gtk.ToolButton
-	ToolBtnTmpl   *gtk.ToolButton
+	ToolBtnSave       *gtk.ToolButton
+	ToolBtnSaveAs     *gtk.ToolButton
+	ToolBtnTmpl       *gtk.ToolButton
+	ToolBtnExportXLSX *gtk.ToolButton
+	ToolBtnImportXLSX *gtk.ToolButton
 
 	Renderer_ru *gtk.CellRendererText
-
-	FilePatch string
-	FileName  string
 
 	Iterator *gtk.TreeIter
 }
@@ -151,6 +153,8 @@ func main() {
 			"main_delete-event":            win.saveCfg, //Сохранение настроек при закрытии окна
 			"main_btn_save_clicked":        win.ToolBtnSave_clicked,
 			"main_btn_saveas_clicked":      win.ToolBtnSaveAs_clicked,
+			"main_btn_export_xlsx_clicked": win.ToolBtnExportXLSX_clicked,
+			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
 			"main_btn_filter_clicked":      win.BtnFilter_clicked,
 			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
@@ -264,6 +268,8 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
 	win.ToolBtnTmpl = gtkutils.GetToolButton(b, "tool_btn_tmpl")
+	win.ToolBtnExportXLSX = gtkutils.GetToolButton(b, "tool_btn_export_xlsx")
+	win.ToolBtnImportXLSX = gtkutils.GetToolButton(b, "tool_btn_import_xlsx")
 
 	win.BtnClose = gtkutils.GetButton(b, "button_close")
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
@@ -310,11 +316,11 @@ func (win *MainWindow) loadFiles() {
 	DataALL := make(map[string]Tlang)
 
 	// Load source Lang
-	win.FilePatch = cfg.Section("Main").Key("Patch").MustString("")
+	env.FilePatch = cfg.Section("Main").Key("Patch").MustString("")
 
 	win.getFileName("Выберите исходный файл для перевода (Select the source file to translate).")
 
-	Data := potbs.ReadDat(win.FileName)
+	Data := potbs.ReadDat(env.FileName)
 	for _, line := range Data {
 		lang.id = line.Id
 		lang.mode = line.Mode
@@ -328,14 +334,14 @@ func (win *MainWindow) loadFiles() {
 			DataALL[line.Id+line.Mode] = lang
 		}
 	}
-	env.sourceLang = str.ToUpper(filepath.Base(win.FileName)[0:2]) //Добавить проверки
+	env.sourceLang = str.ToUpper(filepath.Base(env.FileName)[0:2]) //Добавить проверки
 
-	log.Printf("%s успешно загружен", filepath.Base(win.FileName))
+	log.Printf("%s успешно загружен", filepath.Base(env.FileName))
 
 	// Load target Lang
 	win.getFileName("Выберите файл перевода (Select the target file to translate)")
 
-	Data = potbs.ReadDat(win.FileName)
+	Data = potbs.ReadDat(env.FileName)
 	tmpmap := make(map[string]bool)
 	for _, line := range Data {
 		lang.id = line.Id
@@ -355,9 +361,9 @@ func (win *MainWindow) loadFiles() {
 			tmpmap[line.Id+line.Mode] = true
 		}
 	}
-	env.targetLang = str.ToUpper(filepath.Base(win.FileName)[0:2]) //Добавить проверки
+	env.targetLang = str.ToUpper(filepath.Base(env.FileName)[0:2]) //Добавить проверки
 
-	log.Printf("%s успешно загружен", filepath.Base(win.FileName))
+	log.Printf("%s успешно загружен", filepath.Base(env.FileName))
 
 	//Сортируем
 	lines := make([]Tlang, 0, len(DataALL))
@@ -394,38 +400,115 @@ func (win *MainWindow) saveCfg() {
 	cfg.Section("Main").Key("posX").SetValue(strconv.Itoa(x))
 	cfg.Section("Main").Key("posY").SetValue(strconv.Itoa(y))
 
-	cfg.Section("Main").Key("Patch").SetValue(win.FilePatch)
+	cfg.Section("Main").Key("Patch").SetValue(env.FilePatch)
 
 	cfg.SaveTo(cfgFile)
 }
 
 func (win *MainWindow) ToolBtnSave_clicked() {
 	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, "Внимание!")
-	dialog.FormatSecondaryText("Вы уверены, что хотите перезаписать\n" + win.FileName + " ?")
+	dialog.FormatSecondaryText("Are you sure you want to overwrite?\n" + env.FileName + " ?\n" + "Вы уверены, что хотите перезаписать\n" + env.FileName + " ?")
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
-		savedatfile(win, win.FileName)
+		savedatfile(win, env.FileName)
 		//win.Window.Destroy()
 	}
 
 }
 
 func (win *MainWindow) ToolBtnSaveAs_clicked() {
-	native, err := gtk.FileChooserNativeDialogNew("Выберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
+	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
 	native.SetCurrentName("out.dat")
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
-		log.Println(native.GetFilename())
 		savedatfile(win, native.GetFilename())
+		log.Printf("Файл %s сохранен.\n", native.GetFilename())
 		//win.Window.Destroy()
 	}
 
 }
 
+func (win *MainWindow) ToolBtnExportXLSX_clicked() {
+	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
+	errorCheck(err)
+	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
+	native.SetCurrentName(env.sourceLang + "-" + env.targetLang + ".xlsx")
+	resp := native.Run()
+
+	if resp == int(gtk.RESPONSE_ACCEPT) {
+		saveXLSXfile(win, native.GetFilename())
+		log.Printf("Файл %s сохранен.\n", native.GetFilename())
+		//win.Window.Destroy()
+	}
+
+}
+
+func (win *MainWindow) ToolBtnImportXLSX_clicked() {
+	filter_dat, err := gtk.FileFilterNew()
+	errorCheck(err)
+	filter_dat.AddPattern("*.xlsx")
+	filter_dat.SetName(".xlsx")
+
+	filter_all, err := gtk.FileFilterNew()
+	errorCheck(err)
+	filter_all.AddPattern("*")
+	filter_all.SetName("Any files")
+
+	native, err := gtk.FileChooserNativeDialogNew("Select the XLSX file to import\nВыберите XLSX файл для импорта", win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
+	errorCheck(err)
+
+	native.SetCurrentFolder(env.FilePatch)
+
+	native.AddFilter(filter_dat)
+	native.AddFilter(filter_all)
+	native.SetFilter(filter_dat)
+
+	respons := native.Run()
+	xlsfile := native.GetFilename()
+	native.Destroy()
+	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
+	if respons != int(gtk.RESPONSE_ACCEPT) {
+		return
+	}
+
+	dlg, _ := gtk.DialogNew()
+	//dlg.SetParentWindow(win.Window)
+	dlg.SetTitle("Import " + filepath.Base(xlsfile))
+	dlg.AddButton("Не перевед. (untrans)", gtk.RESPONSE_ACCEPT)
+	dlg.AddButton("Все (All)", gtk.RESPONSE_OK)
+	dlg.AddButton("Отмена (Cancel)", gtk.RESPONSE_CANCEL)
+	dlg.SetPosition(gtk.WIN_POS_CENTER)
+
+	dlgBox, _ := dlg.GetContentArea()
+	dlgBox.SetSpacing(6)
+
+	lbl, _ := gtk.LabelNew("Импорт из первого листа в книге!\nЗаменить только не переведенные строки или все?\n\nImport from the first sheet in a book!\nChange only untranslated strings or all?")
+	lbl.SetMarginStart(6)
+	lbl.SetMarginEnd(6)
+	//lbl.SetLineWrap(true)
+	dlgBox.Add(lbl)
+	lbl.Show()
+
+	resp := dlg.Run()
+	dlg.Destroy()
+
+	switch resp {
+	case gtk.RESPONSE_CANCEL:
+		return
+	case gtk.RESPONSE_ACCEPT:
+		log.Println("импортируем только не переведенные из " + xlsfile)
+		loadXLSXfile(win, xlsfile, false)
+
+	case gtk.RESPONSE_OK:
+		log.Println("импортируем все из " + xlsfile)
+		loadXLSXfile(win, xlsfile, true)
+	}
+
+}
 func (win *MainWindow) Filter_Clear(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
 
 	if !win.bnt_filter.GetActive() {
@@ -506,8 +589,8 @@ func (win *MainWindow) getFileName(title string) {
 	native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
 	errorCheck(err)
 
-	if win.FilePatch != "" {
-		native.SetCurrentFolder(win.FilePatch)
+	if env.FilePatch != "" {
+		native.SetCurrentFolder(env.FilePatch)
 	}
 	native.AddFilter(filter_dat)
 	native.AddFilter(filter_all)
@@ -520,8 +603,8 @@ func (win *MainWindow) getFileName(title string) {
 		win.Window.Close()
 		log.Fatal("Отмена выбора файла")
 	}
-	win.FilePatch, _ = native.GetCurrentFolder()
-	win.FileName = native.GetFilename()
+	env.FilePatch, _ = native.GetCurrentFolder()
+	env.FileName = native.GetFilename()
 
 	native.Destroy()
 }
@@ -583,6 +666,12 @@ func savedatfile(win *MainWindow, outfile string) {
 
 		outdata = append(outdata, line)
 
+		// Проверка перевода на ошибки
+		err = potbs.ValidateTranslate(line.Text)
+		if err != nil {
+			log.Printf("[Warn]\tid[%s]: %s\n", line.Id, err.Error())
+		}
+
 		next = win.ListStore.IterNext(iter)
 
 	}
@@ -594,6 +683,162 @@ func savedatfile(win *MainWindow, outfile string) {
 	potbs.SaveDir(patch+str.TrimSuffix(file, filepath.Ext(file))+".dir", dirs)
 
 	log.Printf("Переведено %d из %d (%d%s)", sum_ru, sum_all, int((sum_ru*100)/sum_all), "%")
+}
+
+func saveXLSXfile(win *MainWindow, outfile string) {
+	//Экспортирует перевод в XLSX
+
+	var line Tlang
+
+	file := xlsx.NewFile()
+	// Создаем новый лист
+	sheet, err := file.AddSheet(env.targetLang)
+	errorCheck(err)
+
+	// Заполняем заголовки
+	row := sheet.AddRow()
+
+	cell := row.AddCell()
+	cell.Value = "ID"
+	cell = row.AddCell()
+	cell.Value = "TYPE"
+	cell = row.AddCell()
+	cell.Value = "Original"
+	cell = row.AddCell()
+	cell.Value = "Translate"
+
+	//iter, _ := win.ListStore.GetIterFirst()
+	iter, _ := win.Filter.GetIterFirst()
+	next := true
+	for next {
+		//valueId, err := win.ListStore.GetValue(iter, columnID)
+		valueId, err := win.Filter.GetValue(iter, columnID)
+		errorCheck(err)
+		valueMode, err := win.Filter.GetValue(iter, columnMode)
+		errorCheck(err)
+		valueEN, err := win.Filter.GetValue(iter, columnEN)
+		errorCheck(err)
+		valueRu, err := win.Filter.GetValue(iter, columnRU)
+		errorCheck(err)
+
+		line.id, _ = valueId.GetString()
+		line.mode, _ = valueMode.GetString()
+		line.en, _ = valueEN.GetString()
+		if line.mode == "ucdt" {
+			val, _ := valueRu.GetString()
+			line.ru = str.ReplaceAll(val, "\t", " ")
+		} else {
+			line.ru, _ = valueRu.GetString()
+		}
+
+		// Заполняем XLSX
+		row = sheet.AddRow()
+		//row.WriteStruct(&line, -1)
+		cell = row.AddCell()
+		cell.Value = line.id
+		cell = row.AddCell()
+		cell.Value = line.mode
+		cell = row.AddCell()
+		cell.Value = line.en
+		cell = row.AddCell()
+		cell.Value = line.ru
+
+		next = win.Filter.IterNext(iter)
+
+	}
+
+	// Сохраням измененный файл
+	err = file.Save(outfile)
+	errorCheck(err)
+
+}
+
+func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
+	//Импортирует перевод из XLSX
+
+	file, err := xlsx.OpenFile(xlsxfile)
+	errorCheck(err)
+
+	// открываем первый лист
+	sheet := file.Sheets[0]
+	if sheet == nil {
+		log.Println("[ERR] Не найден лист с переводом")
+		return
+	}
+
+	//Data := make([]Tlang, 0)
+	Data := make(map[string]Tlang)
+
+	var line Tlang
+	var row *xlsx.Row
+
+	//Подгружаем значения
+	for i := 1; i < sheet.MaxRow; i++ {
+		row, err = sheet.Row(i)
+		errorCheck(err)
+		if row != nil {
+			line.id = row.GetCell(columnID).Value
+			line.mode = row.GetCell(columnMode).Value
+			line.en = row.GetCell(columnEN).Value
+			line.ru = row.GetCell(columnRU).Value
+			// Добавляем только строки с переводом
+			if line.ru != "" {
+				Data[line.id+line.mode] = line
+			}
+		}
+	}
+	log.Printf("Загружено из файла %d строк.", len(Data))
+
+	// Вносим изменения в перевод
+	iter, _ := win.ListStore.GetIterFirst()
+	next := true
+	for next {
+
+		valueId, err := win.ListStore.GetValue(iter, columnID)
+		errorCheck(err)
+		line.id, _ = valueId.GetString()
+
+		valueMode, err := win.ListStore.GetValue(iter, columnMode)
+		errorCheck(err)
+		line.mode, _ = valueMode.GetString()
+
+		//ucdn - пустая строка. нет смысла проверять далее
+		if line.mode == "ucdn" {
+			next = win.ListStore.IterNext(iter)
+			continue
+		}
+
+		valueEN, err := win.ListStore.GetValue(iter, columnEN)
+		errorCheck(err)
+		line.en, _ = valueEN.GetString()
+
+		// Если импортируем только новые, проверяем перевод
+		if !importALL {
+			valueRu, err := win.ListStore.GetValue(iter, columnRU)
+			errorCheck(err)
+			// Если перевода нет, добавляем
+			if text, _ := valueRu.GetString(); text == "" {
+				if val, ok := Data[line.id+line.mode]; ok {
+					// Т.к. id+mode не уникален
+					if line.en == val.en {
+						win.ListStore.SetValue(iter, columnRU, val.ru)
+						log.Println("Добавлен перевод для записи: " + val.id)
+					}
+				}
+			}
+
+		} else {
+			if val, ok := Data[line.id+line.mode]; ok {
+				// Т.к. id+mode не уникален
+				if line.en == val.en {
+					win.ListStore.SetValue(iter, columnRU, val.ru)
+				}
+				//log.Println("Добавлен перевод для записи: " + val.id)
+			}
+		}
+
+		next = win.ListStore.IterNext(iter)
+	}
 }
 
 // Заполнение окна с переводом при клике на строку
@@ -785,6 +1030,11 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 
 	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
 	errorCheck(err)
+
+	//Если нечего переводить, выходим
+	if text == "" {
+		return
+	}
 
 	// Заменяем текст оригинала по шаблонам. Для более точного перевода
 	for _, line := range TmplList {
