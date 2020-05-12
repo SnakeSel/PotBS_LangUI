@@ -1043,10 +1043,9 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 
 	// отправляем в гугл
 	res, err := tr.Translate(text, env.sourceLang, env.targetLang)
-	errorCheck(err)
-
-	dialog.BufferRu.SetText(res)
-
+	if err == nil {
+		dialog.BufferRu.SetText(res)
+	}
 }
 
 func errorCheck(e error, text_opt ...string) {
