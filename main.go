@@ -19,6 +19,8 @@ import (
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 
+	"os"
+
 	"github.com/tealeg/xlsx"
 	"gopkg.in/ini.v1"
 )
@@ -126,13 +128,25 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 func main() {
 	var err error
 
-	log.Printf("Запуск PotBS_LangUI, версия: %s\n", version)
-
 	// Загрузка настроек
 	cfg, err = ini.LooseLoad(cfgFile)
 	if err != nil {
 		log.Fatalf("Fail to read file: %v", err)
 	}
+
+	// Если есть параметр, используем файл лога
+	// Весь изврат из-за отсутствия вывода в консоль в Windows
+	if file := cfg.Section("Main").Key("Log").MustString(""); file != "" {
+		f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+		defer f.Close()
+
+		log.SetOutput(f)
+	}
+
+	log.Printf("Запуск PotBS_LangUI, версия: %s\n", version)
 
 	// Create a new application.
 	application, err := gtk.ApplicationNew(appId, glib.APPLICATION_FLAGS_NONE)
