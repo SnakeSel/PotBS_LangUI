@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.22.2 -->
+<!-- Generated with glade 3.36.0 -->
 <interface>
   <requires lib="gtk+" version="3.16"/>
   <object class="GtkImage" id="GoogleTranlateImg">
@@ -34,9 +34,6 @@ Translate via Google Translate</property>
     <property name="window_position">center-on-parent</property>
     <property name="has_resize_grip">True</property>
     <signal name="delete-event" handler="main_delete-event" swapped="no"/>
-    <child type="titlebar">
-      <placeholder/>
-    </child>
     <child>
       <object class="GtkBox">
         <property name="visible">True</property>
@@ -257,20 +254,29 @@ Translate via Google Translate</property>
               </packing>
             </child>
             <child>
-              <object class="GtkToggleButton" id="bnt_filter">
-                <property name="label" translatable="yes">not translated</property>
+              <object class="GtkComboBoxText" id="combo_filter">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="tooltip_text" translatable="yes">Отфильтровать строки без перевода
-Filter strings without translation</property>
-                <property name="margin_right">10</property>
-                <signal name="clicked" handler="main_btn_filter_clicked" swapped="no"/>
+                <property name="app_paintable">True</property>
+                <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Отфильтровать строки:
+Все
+Без перевода
+Перевод без оригинала</property>
+                <property name="double_buffered">False</property>
+                <property name="resize_mode">immediate</property>
+                <property name="active">0</property>
+                <property name="active_id">1</property>
+                <items>
+                  <item id="0" translatable="yes">ALL</item>
+                  <item id="1" translatable="yes">not translated</item>
+                  <item id="2" translatable="yes">not in original</item>
+                </items>
+                <signal name="changed" handler="main_combo_filter_change" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">2</property>
+                <property name="position">3</property>
               </packing>
             </child>
             <child>
@@ -286,7 +292,7 @@ Filter strings without translation</property>
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="position">3</property>
+                <property name="position">4</property>
               </packing>
             </child>
             <child>
@@ -302,28 +308,13 @@ Search entire string</property>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">4</property>
+                <property name="position">5</property>
               </packing>
             </child>
             <child>
               <object class="GtkBox">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <child>
-                  <object class="GtkButton" id="btn_up">
-                    <property name="label">gtk-go-up</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="tooltip_text" translatable="yes">Back</property>
-                    <property name="use_stock">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
                 <child>
                   <object class="GtkButton" id="btn_down">
                     <property name="label">gtk-go-down</property>
@@ -336,6 +327,21 @@ Search entire string</property>
                   <packing>
                     <property name="expand">False</property>
                     <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_up">
+                    <property name="label">gtk-go-up</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="tooltip_text" translatable="yes">Back</property>
+                    <property name="use_stock">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
@@ -343,7 +349,7 @@ Search entire string</property>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">5</property>
+                <property name="position">6</property>
               </packing>
             </child>
           </object>
@@ -355,6 +361,9 @@ Search entire string</property>
           </packing>
         </child>
       </object>
+    </child>
+    <child type="titlebar">
+      <placeholder/>
     </child>
   </object>
   <object class="GtkDialog" id="dialog_translite">
@@ -370,9 +379,6 @@ Search entire string</property>
     <property name="transient_for">window_main</property>
     <property name="has_resize_grip">True</property>
     <signal name="destroy-event" handler="dialog_delete-event" swapped="no"/>
-    <child type="titlebar">
-      <placeholder/>
-    </child>
     <child internal-child="vbox">
       <object class="GtkBox">
         <property name="can_focus">False</property>
@@ -550,6 +556,9 @@ Translate via Google Translate</property>
           </packing>
         </child>
       </object>
+    </child>
+    <child type="titlebar">
+      <placeholder/>
     </child>
   </object>
 </interface>

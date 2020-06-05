@@ -58,6 +58,13 @@ const (
 	//columnRuColor
 )
 
+// ID фильтров
+const (
+	filterALL = iota
+	filterNotTranslate
+	filterNotOriginal
+)
+
 type Tlang struct {
 	id   string `xlsx:"0"`
 	mode string `xlsx:"1"`
@@ -78,9 +85,9 @@ type MainWindow struct {
 	BtnUp    *gtk.Button
 	BtnDown  *gtk.Button
 
-	Search      *gtk.SearchEntry
-	Search_Full *gtk.CheckButton
-	bnt_filter  *gtk.ToggleButton
+	Search       *gtk.SearchEntry
+	Search_Full  *gtk.CheckButton
+	combo_filter *gtk.ComboBoxText
 
 	ToolBtnSave       *gtk.ToolButton
 	ToolBtnSaveAs     *gtk.ToolButton
@@ -171,7 +178,7 @@ func main() {
 			"main_btn_export_xlsx_clicked": win.ToolBtnExportXLSX_clicked,
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
-			"main_btn_filter_clicked":      win.BtnFilter_clicked,
+			"main_combo_filter_change":     win.ComboFilter_clicked,
 			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
 			"dialog_btn_google_tr_clicked": dialog.BtnGoogleTr_clicked,
 		}
@@ -200,11 +207,13 @@ func main() {
 		})
 
 		win.Search.Connect("search-changed", func() {
+			win.Search.SetSensitive(false)
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchNext(searchtext)
 			if patch != nil {
 				win.TreeView.SetCursor(patch, nil, false)
 			}
+			win.Search.SetSensitive(true)
 		})
 
 		win.BtnClose.Connect("clicked", func() {
@@ -244,7 +253,7 @@ func main() {
 		// Загружаем шаблоны
 		TmplList = tmpl.LoadTmplFromFile(env.tmplFile)
 
-		win.Filter.SetVisibleFunc(win.Filter_Clear)
+		win.Filter.SetVisibleFunc(win.funcFilter)
 		win.Filter.Refilter()
 		// Отображаем все виджеты в окне
 		win.Window.Show()
@@ -280,7 +289,7 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 
 	win.Search = gtkutils.GetSearchEntry(b, "entry_search")
 	win.Search_Full = gtkutils.GetCheckButton(b, "chk_full")
-	win.bnt_filter = gtkutils.GetToggleButton(b, "bnt_filter")
+	win.combo_filter = gtkutils.GetComboBoxText(b, "combo_filter")
 
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
@@ -526,30 +535,51 @@ func (win *MainWindow) ToolBtnImportXLSX_clicked() {
 	}
 
 }
-func (win *MainWindow) Filter_Clear(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
 
-	if !win.bnt_filter.GetActive() {
+// Фильтр
+func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
+
+	switch win.combo_filter.GetActive() {
+	case filterALL:
+		// Фильтр всех записей
 		env.filterChildEndIter = iter
 		return true
+	case filterNotTranslate:
+		// Фильтр Не переведенных записей
+		value, _ := model.GetValue(iter, columnRU)
+		textRU, _ := value.GetString()
+
+		value, _ = model.GetValue(iter, columnEN)
+		textEN, _ := value.GetString()
+
+		if (textRU == "") && (textEN != "") {
+			env.filterChildEndIter = iter
+			return true
+		} else {
+			return false
+		}
+	case filterNotOriginal:
+		// Фильтр записей без оригинала
+		value, _ := model.GetValue(iter, columnRU)
+		textRU, _ := value.GetString()
+
+		value, _ = model.GetValue(iter, columnEN)
+		textEN, _ := value.GetString()
+
+		if (textRU != "") && (textEN == "") {
+			env.filterChildEndIter = iter
+			return true
+		} else {
+			return false
+		}
 	}
-
-	value, _ := model.GetValue(iter, columnRU)
-	textRU, _ := value.GetString()
-
-	value, _ = model.GetValue(iter, columnEN)
-	textEN, _ := value.GetString()
-
-	if (textRU == "") && (textEN != "") {
-		env.filterChildEndIter = iter
-		return true
-	} else {
-		return false
-	}
-
+	return true
 }
 
-func (win *MainWindow) BtnFilter_clicked() {
+func (win *MainWindow) ComboFilter_clicked() {
+	win.combo_filter.SetSensitive(false)
 	win.Filter.Refilter()
+	win.combo_filter.SetSensitive(true)
 }
 
 func (win *MainWindow) ToolBtnTmpl_clicked() {

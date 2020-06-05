@@ -139,6 +139,17 @@ func GetComboBox(b *gtk.Builder, id string) (combobox *gtk.ComboBox) {
 	return
 }
 
+func GetComboBoxText(b *gtk.Builder, id string) (el *gtk.ComboBoxText) {
+	obj, e := b.GetObject(id)
+	if e != nil {
+		log.Printf("ComboBoxText error: %s", e)
+		return nil
+	}
+
+	el, _ = obj.(*gtk.ComboBoxText)
+	return
+}
+
 func GetCheckButton(b *gtk.Builder, id string) (el *gtk.CheckButton) {
 	obj, e := b.GetObject(id)
 	if e != nil {
