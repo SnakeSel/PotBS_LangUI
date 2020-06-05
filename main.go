@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	version   = "20200511"
+	version   = "20200605"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -44,6 +44,7 @@ type tEnv struct {
 	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
 	FilePatch          string        // Путь к выбранному файлу
 	FileName           string        //
+	ClearNotOriginal   bool          // Удалять перевод при отсутствии записи в оригинале
 }
 
 var env tEnv
@@ -119,7 +120,7 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 		[]int{columnID, columnMode, columnEN, columnRU},
 		[]interface{}{id, tpe, en, ru})
 	if err != nil {
-		log.Fatal("Unable to add row:", err)
+		log.Fatal("[ERR]\tUnable to add row:", err)
 	}
 	return err
 
@@ -131,7 +132,7 @@ func main() {
 	// Загрузка настроек
 	cfg, err = ini.LooseLoad(cfgFile)
 	if err != nil {
-		log.Fatalf("Fail to read file: %v", err)
+		log.Fatalf("[ERR]\tFail to read file: %v", err)
 	}
 
 	// Если есть параметр, используем файл лога
@@ -139,7 +140,7 @@ func main() {
 	if file := cfg.Section("Main").Key("Log").MustString(""); file != "" {
 		f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
-			log.Fatalf("error opening file: %v", err)
+			log.Fatalf("[ERR]\terror opening file: %v", err)
 		}
 		defer f.Close()
 
@@ -232,6 +233,8 @@ func main() {
 		win.Window.Move(cfg.Section("Main").Key("posX").MustInt(0), cfg.Section("Main").Key("posY").MustInt(0))
 
 		dialog.Window.Resize(cfg.Section("Translate").Key("width").MustInt(900), cfg.Section("Translate").Key("height").MustInt(300))
+
+		env.ClearNotOriginal = cfg.Section("Main").Key("ClearNotOriginal").MustBool(false)
 
 		// #########################################
 		// Загружаем файлы перевода
@@ -350,7 +353,7 @@ func (win *MainWindow) loadFiles() {
 	}
 	env.sourceLang = str.ToUpper(filepath.Base(env.FileName)[0:2]) //Добавить проверки
 
-	log.Printf("%s успешно загружен", filepath.Base(env.FileName))
+	log.Printf("[INFO]\t%s успешно загружен", filepath.Base(env.FileName))
 
 	// Load target Lang
 	win.getFileName("Выберите файл перевода (Select the target file to translate)")
@@ -377,7 +380,7 @@ func (win *MainWindow) loadFiles() {
 	}
 	env.targetLang = str.ToUpper(filepath.Base(env.FileName)[0:2]) //Добавить проверки
 
-	log.Printf("%s успешно загружен", filepath.Base(env.FileName))
+	log.Printf("[INFO]\t%s успешно загружен", filepath.Base(env.FileName))
 
 	//Сортируем
 	lines := make([]Tlang, 0, len(DataALL))
@@ -421,7 +424,7 @@ func (win *MainWindow) saveCfg() {
 
 func (win *MainWindow) ToolBtnSave_clicked() {
 	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, "Внимание!")
-	dialog.FormatSecondaryText("Are you sure you want to overwrite?\n" + env.FileName + " ?\n" + "Вы уверены, что хотите перезаписать\n" + env.FileName + " ?")
+	dialog.FormatSecondaryText("Are you sure you want to overwrite:\nВы уверены, что хотите перезаписать:\n\n" + env.FileName + " ?")
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
@@ -440,7 +443,7 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
 		savedatfile(win, native.GetFilename())
-		log.Printf("Файл %s сохранен.\n", native.GetFilename())
+		log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
 		//win.Window.Destroy()
 	}
 
@@ -455,7 +458,7 @@ func (win *MainWindow) ToolBtnExportXLSX_clicked() {
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
 		saveXLSXfile(win, native.GetFilename())
-		log.Printf("Файл %s сохранен.\n", native.GetFilename())
+		log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
 		//win.Window.Destroy()
 	}
 
@@ -514,11 +517,11 @@ func (win *MainWindow) ToolBtnImportXLSX_clicked() {
 	case gtk.RESPONSE_CANCEL:
 		return
 	case gtk.RESPONSE_ACCEPT:
-		log.Println("импортируем только не переведенные из " + xlsfile)
+		log.Println("[INFO]\tимпортируем только не переведенные из " + xlsfile)
 		loadXLSXfile(win, xlsfile, false)
 
 	case gtk.RESPONSE_OK:
-		log.Println("импортируем все из " + xlsfile)
+		log.Println("[INFO]\tимпортируем все из " + xlsfile)
 		loadXLSXfile(win, xlsfile, true)
 	}
 
@@ -615,7 +618,7 @@ func (win *MainWindow) getFileName(title string) {
 	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
 	if respons != int(gtk.RESPONSE_ACCEPT) {
 		win.Window.Close()
-		log.Fatal("Отмена выбора файла")
+		log.Fatal("[INFO]\tОтмена выбора файла")
 	}
 	env.FilePatch, _ = native.GetCurrentFolder()
 	env.FileName = native.GetFilename()
@@ -628,6 +631,10 @@ func savedatfile(win *MainWindow, outfile string) {
 	var sum_all, sum_ru int //Подсчет % перевода
 	sum_all = 0
 	sum_ru = 0
+
+	if env.ClearNotOriginal {
+		log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
+	}
 
 	var line potbs.TData
 	outdata := make([]potbs.TData, 0)
@@ -659,21 +666,21 @@ func savedatfile(win *MainWindow, outfile string) {
 			}
 		}
 
-		// // Если русского перевода нет, а в англиском текст есть, не записываем
-		// //if len(line.Text) == 0 {
-		// if line.Text == "" {
-		// 	valueEn, err := win.ListStore.GetValue(iter, columnEN)
-		// 	errorCheck(err)
-		// 	val, _ := valueEn.GetString()
-		// 	//if len(val) > 0 && line.Mode != "ucdn" {
-		// 	if val != "" && line.Mode != "ucdn" {
-		// 		next = win.ListStore.IterNext(iter)
-		// 		continue
-		// 	}
-		// }
+		if env.ClearNotOriginal {
+			// Если есть перевод, а в оригинале такой строчки нет - пропускаем
+			valueEn, err := win.ListStore.GetValue(iter, columnEN)
+			errorCheck(err)
+			strEN, _ := valueEn.GetString()
+			if len(line.Text) != 0 && len(strEN) == 0 {
+				next = win.ListStore.IterNext(iter)
+				continue
+			}
 
-		// Если русского перевода нет, и это текстовая строка (ucdt), пропускаем
-		if line.Text == "" && line.Mode == "ucdt" {
+		}
+
+		// Если русского перевода нет, и это текстовая строка (ucdt), пропускаем. Может быть(ucgt)
+		//if line.Text == "" && line.Mode == "ucdt" {
+		if line.Text == "" && line.Mode != "ucdn" {
 			next = win.ListStore.IterNext(iter)
 			continue
 		}
@@ -696,7 +703,8 @@ func savedatfile(win *MainWindow, outfile string) {
 	patch, file := filepath.Split(outfile)
 	potbs.SaveDir(patch+str.TrimSuffix(file, filepath.Ext(file))+".dir", dirs)
 
-	log.Printf("Переведено %d из %d (%d%s)", sum_ru, sum_all, int((sum_ru*100)/sum_all), "%")
+	log.Printf("[INFO]\tПереведено %d из %d (%d%s)", sum_ru, sum_all, int((sum_ru*100)/sum_all), "%")
+	log.Printf("[INFO]\tОсталось: %d строк", int(sum_all-sum_ru))
 }
 
 func saveXLSXfile(win *MainWindow, outfile string) {
@@ -776,7 +784,7 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 	// открываем первый лист
 	sheet := file.Sheets[0]
 	if sheet == nil {
-		log.Println("[ERR] Не найден лист с переводом")
+		log.Println("[ERR]\tНе найден лист с переводом")
 		return
 	}
 
@@ -801,7 +809,7 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 			}
 		}
 	}
-	log.Printf("Загружено из файла %d строк.", len(Data))
+	log.Printf("[INFO]\tЗагружено из файла %d строк.", len(Data))
 
 	// Вносим изменения в перевод
 	iter, _ := win.ListStore.GetIterFirst()
@@ -836,7 +844,9 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 					// Т.к. id+mode не уникален
 					if line.en == val.en {
 						win.ListStore.SetValue(iter, columnRU, val.ru)
-						log.Println("Добавлен перевод для записи: " + val.id)
+						//log.Println("[INFO]\tДобавлен перевод для записи: " + val.id)
+					} else {
+						log.Printf("[WARN]\tПропускаем запись %s, текст оригинала не совпадает.", val.id)
 					}
 				}
 			}
@@ -847,7 +857,7 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 				if line.en == val.en {
 					win.ListStore.SetValue(iter, columnRU, val.ru)
 				}
-				//log.Println("Добавлен перевод для записи: " + val.id)
+				//log.Println("[INFO]\tДобавлен перевод для записи: " + val.id)
 			}
 		}
 
@@ -905,7 +915,7 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 		}
 
 		if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
-			log.Println("Warn: неверный итератор Next")
+			log.Println("[ERR]\tневерный итератор Next")
 			continue
 		}
 
@@ -944,7 +954,7 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 
 		}
 	}
-	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
+	//log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
 
@@ -968,7 +978,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 		}
 
 		if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
-			log.Println("Warn: неверный итератор Prev")
+			log.Println("[ERR]\tневерный итератор Prev")
 			continue
 		}
 
@@ -1010,7 +1020,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 		}
 
 	}
-	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
+	//log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
 

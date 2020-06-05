@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	str "strings"
+
+	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -150,10 +151,10 @@ func LoadTmplFromFile(patch string) []TTmpl {
 
 	if _, err := os.Stat(patch); err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Файл шаблонов %s не найден.\n", patch)
+			log.Printf("[INFO]\tФайл шаблонов %s не найден.\n", patch)
 			return Tmpls
 		} else {
-			log.Println("Неизвестная ошибки при открытии шаблонов")
+			log.Println("[ERR]\tНеизвестная ошибки при открытии шаблонов")
 			return nil
 		}
 
@@ -173,7 +174,7 @@ func LoadTmplFromFile(patch string) []TTmpl {
 		Tmpls = append(Tmpls, line)
 	}
 
-	log.Println("Шаблонов загружено: ", len(Tmpls))
+	log.Println("[INFO]\tШаблонов загружено: ", len(Tmpls))
 	return Tmpls
 }
 
