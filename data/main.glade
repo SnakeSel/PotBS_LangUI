@@ -184,7 +184,7 @@ Translate via Google Translate</property>
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn">
+                  <object class="GtkTreeViewColumn" id="Col_SourceLang">
                     <property name="resizable">True</property>
                     <property name="sizing">autosize</property>
                     <property name="max_width">600</property>
@@ -198,7 +198,7 @@ Translate via Google Translate</property>
                   </object>
                 </child>
                 <child>
-                  <object class="GtkTreeViewColumn">
+                  <object class="GtkTreeViewColumn" id="Col_TargetLang">
                     <property name="resizable">True</property>
                     <property name="sizing">autosize</property>
                     <property name="max_width">600</property>

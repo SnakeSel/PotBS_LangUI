@@ -8,11 +8,44 @@ import (
 
 	s "strings"
 
+	"io"
+	"io/ioutil"
+	"log"
+	"path/filepath"
 	"regexp"
 	"strconv"
 )
 
 var BeginByte = []byte("ï»¿")
+
+// Config is the configuration struct you should pass to New().
+type Config struct {
+	// Debug is an optional writer which will be used for debug output.
+	Debug io.Writer
+}
+
+type Translate struct {
+	//err error
+
+	log        *log.Logger
+	conf       *Config
+	SourceLang string
+	TargetLang string
+}
+
+// New returns a new Translate.
+func New(conf Config) (*Translate, error) {
+
+	t := &Translate{conf: &conf}
+
+	if conf.Debug == nil {
+		conf.Debug = ioutil.Discard
+	}
+
+	t.log = log.New(conf.Debug, "[potbs]: ", log.LstdFlags)
+
+	return t, nil
+}
 
 type TData struct {
 	Id   string
@@ -20,7 +53,7 @@ type TData struct {
 	Text string
 }
 
-type TDir struct {
+type tDir struct {
 	Id     int
 	pos    int
 	lenght int
@@ -70,7 +103,7 @@ func indexN(str, substr string, n int) int {
 	return pos
 }
 
-func ReadDat(filepach string) []TData {
+func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 
 	// Входной dat файл со списком строк вида:
 	// <id>\t<вид строки>\t<строка>\r\n
@@ -83,7 +116,9 @@ func ReadDat(filepach string) []TData {
 	Data := make([]TData, 0)
 
 	file, err := os.Open(filepach)
-	сheckErr(err)
+	if err != nil {
+		return nil, err
+	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
@@ -137,17 +172,20 @@ func ReadDat(filepach string) []TData {
 
 	}
 
-	return Data
+	return Data, nil
 }
 
-func SaveDat(filepach string, Datas []TData) []TDir {
-	dirs := make([]TDir, 0)
-	var dir TDir
+func (t *Translate) SaveFile(filepach string, Datas []TData) error {
+	dirs := make([]tDir, 0)
+	var dir tDir
 	var linelen int
 	pos := 0 // Бит в файле
 
 	filedat, err := os.Create(filepach)
-	сheckErr(err, "Unable to create file: "+filepach)
+	if err != nil {
+		t.log.Printf("Unable to create file: " + filepach)
+		return err
+	}
 	defer filedat.Close()
 
 	for id, line := range Datas {
@@ -194,24 +232,39 @@ func SaveDat(filepach string, Datas []TData) []TDir {
 		pos += 2 //\r\n
 	}
 
-	return dirs
-
-}
-
-func SaveDir(filepach string, dirs []TDir) {
-	filedir, err := os.Create(filepach)
-	сheckErr(err, "Unable to create file: "+filepach)
+	//Создаем dir файл
+	patch, file := filepath.Split(filepach)
+	filedir, err := os.Create(patch + s.TrimSuffix(file, filepath.Ext(file)) + ".dir")
+	if err != nil {
+		t.log.Println("Error save DIR file")
+		return err
+	}
 	defer filedir.Close()
 
 	// Записываем начало
 	filedir.WriteString(fmt.Sprintf("## Count:\t%d\r\n", len(dirs)))
-	//filedir.WriteString("## Locale:\tru_RU\r\n")
+	filedir.WriteString("## Game:\tPBS\r\n")
+
+	locale := langName(t.TargetLang)
+	if locale != "" {
+		filedir.WriteString(fmt.Sprintf("## Locale:\t%s\r\n", locale))
+	}
 
 	for _, dir := range dirs {
 		filedir.WriteString(fmt.Sprintf("%d\t%d\t%d\td\r\n", dir.Id, dir.pos, dir.lenght))
 	}
 
+	return nil
 }
+
+// func IsRusByUnicode(str string) bool {
+// 	for _, r := range str {
+// 		if unicode.Is(unicode.Cyrillic, r) {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func ValidateTranslate(translate string) error {
 
@@ -240,12 +293,21 @@ func ValidateTranslate(translate string) error {
 	return nil
 }
 
-func сheckErr(err error, text_opt ...string) {
-	if err != nil {
-		if len(text_opt) > 0 {
-			fmt.Println(text_opt[0])
-		}
-		fmt.Println(err.Error())
-		panic(err)
+func langName(lang string) string {
+	switch s.ToUpper(lang) {
+	case "RU":
+		return "ru_RU"
+	case "EN":
+		return "en_US"
+	case "FR":
+		return "fr_FR"
+	case "DE":
+		return "de_DE"
+	case "ES":
+		return "es_ES"
+	default:
+		return ""
 	}
+
+	return ""
 }

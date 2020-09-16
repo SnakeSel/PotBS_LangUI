@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	version   = "20200605"
+	version   = "20200916"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -36,18 +36,10 @@ const (
 var TmplList []tmpl.TTmpl
 var cfg *ini.File
 
-// Временные переменные доступные во всех функциях
-type tEnv struct {
-	sourceLang         string        // исходный язык для перевода
-	targetLang         string        // на какой будем переводить
-	tmplFile           string        // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
-	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
-	FilePatch          string        // Путь к выбранному файлу
-	FileName           string        //
-	ClearNotOriginal   bool          // Удалять перевод при отсутствии записи в оригинале
-}
-
-var env tEnv
+// type ifaceTranslate interface {
+// 	LoadFile(string) []potbs.TData
+// 	SaveFile(string, []potbs.TData)
+// }
 
 // IDs to access the tree view columns by
 const (
@@ -98,6 +90,15 @@ type MainWindow struct {
 	Renderer_ru *gtk.CellRendererText
 
 	Iterator *gtk.TreeIter
+	//Project  ifaceTranslate
+	Project *potbs.Translate
+
+	tmplFile           string        // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
+	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
+	clearNotOriginal   bool          // не сохранять строки которых нет в оригинале
+	langFileFullPath   string        // Хранит путь к файлу и имя файла с переводом
+	langFilePath       string        // Хранит путь к файлу с переводом
+	langFileName       string        // Хранит только имя файла перевода
 }
 
 type DialogWindow struct {
@@ -114,7 +115,9 @@ type DialogWindow struct {
 	BtnTmplRun *gtk.Button
 	BtnGooglTr *gtk.Button
 
-	Label *gtk.Label
+	Label      *gtk.Label
+	sourceLang string // исходный язык для перевода
+	targetLang string // на какой будем переводить
 }
 
 // Append a row to the list store for the tree view
@@ -152,6 +155,8 @@ func main() {
 		defer f.Close()
 
 		log.SetOutput(f)
+	} else {
+		log.SetOutput(os.Stdout)
 	}
 
 	log.Printf("Запуск PotBS_LangUI, версия: %s\n", version)
@@ -207,13 +212,13 @@ func main() {
 		})
 
 		win.Search.Connect("search-changed", func() {
-			win.Search.SetSensitive(false)
+			//win.Search.SetSensitive(false)
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchNext(searchtext)
 			if patch != nil {
 				win.TreeView.SetCursor(patch, nil, false)
 			}
-			win.Search.SetSensitive(true)
+			//win.Search.SetSensitive(true)
 		})
 
 		win.BtnClose.Connect("clicked", func() {
@@ -243,18 +248,32 @@ func main() {
 
 		dialog.Window.Resize(cfg.Section("Translate").Key("width").MustInt(900), cfg.Section("Translate").Key("height").MustInt(300))
 
-		env.ClearNotOriginal = cfg.Section("Main").Key("ClearNotOriginal").MustBool(false)
+		win.clearNotOriginal = cfg.Section("Main").Key("ClearNotOriginal").MustBool(false)
 
 		// #########################################
+		//Проект перевода
+		win.Project, _ = potbs.New(potbs.Config{
+			//Debug:     os.Stdout,
+			Debug: log.Writer(),
+		})
+
 		// Загружаем файлы перевода
 		win.loadFiles()
 
-		env.tmplFile = tmplPatch + "_" + env.sourceLang + "-" + env.targetLang
+		win.TreeView.GetColumn(columnEN).SetTitle(win.Project.SourceLang)
+		win.TreeView.GetColumn(columnRU).SetTitle(win.Project.TargetLang)
+
+		dialog.sourceLang = win.Project.SourceLang
+		dialog.targetLang = win.Project.TargetLang
+
+		win.tmplFile = tmplPatch + "_" + win.Project.SourceLang + "-" + win.Project.TargetLang
+
 		// Загружаем шаблоны
-		TmplList = tmpl.LoadTmplFromFile(env.tmplFile)
+		TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
 
 		win.Filter.SetVisibleFunc(win.funcFilter)
 		win.Filter.Refilter()
+
 		// Отображаем все виджеты в окне
 		win.Window.Show()
 
@@ -342,11 +361,15 @@ func (win *MainWindow) loadFiles() {
 	DataALL := make(map[string]Tlang)
 
 	// Load source Lang
-	env.FilePatch = cfg.Section("Main").Key("Patch").MustString("")
+	win.langFilePath = cfg.Section("Main").Key("Patch").MustString("")
 
-	win.getFileName("Выберите исходный файл для перевода (Select the source file to translate).")
+	win.langFileFullPath = win.getFileFullPath("Выберите исходный файл для перевода (Select the source file to translate).")
+	win.langFilePath = filepath.Dir(win.langFileFullPath)
+	win.langFileName = filepath.Base(win.langFileFullPath)
 
-	Data := potbs.ReadDat(env.FileName)
+	Data, err := win.Project.LoadFile(win.langFileFullPath)
+	errorCheck(err)
+
 	for _, line := range Data {
 		lang.id = line.Id
 		lang.mode = line.Mode
@@ -360,14 +383,22 @@ func (win *MainWindow) loadFiles() {
 			DataALL[line.Id+line.Mode] = lang
 		}
 	}
-	env.sourceLang = str.ToUpper(filepath.Base(env.FileName)[0:2]) //Добавить проверки
 
-	log.Printf("[INFO]\t%s успешно загружен", filepath.Base(env.FileName))
+	win.Project.SourceLang = langName(win.langFileName[0:2]) //Добавить проверки
+	if win.Project.SourceLang == "" {
+		log.Println("Не определить язык исходного файла")
+	}
+
+	log.Printf("[INFO]\t%s успешно загружен, язык: %s", win.langFileName, win.Project.SourceLang)
 
 	// Load target Lang
-	win.getFileName("Выберите файл перевода (Select the target file to translate)")
+	win.langFileFullPath = win.getFileFullPath("Выберите файл перевода (Select the target file to translate)")
+	win.langFilePath = filepath.Dir(win.langFileFullPath)
+	win.langFileName = filepath.Base(win.langFileFullPath)
 
-	Data = potbs.ReadDat(env.FileName)
+	Data, err = win.Project.LoadFile(win.langFileFullPath)
+	errorCheck(err)
+
 	tmpmap := make(map[string]bool)
 	for _, line := range Data {
 		lang.id = line.Id
@@ -387,9 +418,12 @@ func (win *MainWindow) loadFiles() {
 			tmpmap[line.Id+line.Mode] = true
 		}
 	}
-	env.targetLang = str.ToUpper(filepath.Base(env.FileName)[0:2]) //Добавить проверки
+	win.Project.TargetLang = langName(win.langFileName[0:2]) //Добавить проверки
+	if win.Project.TargetLang == "" {
+		log.Println("Не определить язык конечного файла")
+	}
 
-	log.Printf("[INFO]\t%s успешно загружен", filepath.Base(env.FileName))
+	log.Printf("[INFO]\t%s успешно загружен, язык: %s", win.langFileName, win.Project.TargetLang)
 
 	//Сортируем
 	lines := make([]Tlang, 0, len(DataALL))
@@ -426,18 +460,18 @@ func (win *MainWindow) saveCfg() {
 	cfg.Section("Main").Key("posX").SetValue(strconv.Itoa(x))
 	cfg.Section("Main").Key("posY").SetValue(strconv.Itoa(y))
 
-	cfg.Section("Main").Key("Patch").SetValue(env.FilePatch)
+	cfg.Section("Main").Key("Patch").SetValue(win.langFilePath)
 
 	cfg.SaveTo(cfgFile)
 }
 
 func (win *MainWindow) ToolBtnSave_clicked() {
 	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, "Внимание!")
-	dialog.FormatSecondaryText("Are you sure you want to overwrite:\nВы уверены, что хотите перезаписать:\n\n" + env.FileName + " ?")
+	dialog.FormatSecondaryText("Are you sure you want to overwrite:\nВы уверены, что хотите перезаписать:\n\n" + win.langFileName + " ?")
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
-		savedatfile(win, env.FileName)
+		win.SaveTarget(win.langFileName)
 		//win.Window.Destroy()
 	}
 
@@ -451,7 +485,7 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
-		savedatfile(win, native.GetFilename())
+		win.SaveTarget(native.GetFilename())
 		log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
 		//win.Window.Destroy()
 	}
@@ -462,7 +496,7 @@ func (win *MainWindow) ToolBtnExportXLSX_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
-	native.SetCurrentName(env.sourceLang + "-" + env.targetLang + ".xlsx")
+	native.SetCurrentName(win.Project.SourceLang + "-" + win.Project.TargetLang + ".xlsx")
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
@@ -487,7 +521,7 @@ func (win *MainWindow) ToolBtnImportXLSX_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Select the XLSX file to import\nВыберите XLSX файл для импорта", win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
 	errorCheck(err)
 
-	native.SetCurrentFolder(env.FilePatch)
+	native.SetCurrentFolder(win.langFilePath)
 
 	native.AddFilter(filter_dat)
 	native.AddFilter(filter_all)
@@ -542,7 +576,7 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 	switch win.combo_filter.GetActive() {
 	case filterALL:
 		// Фильтр всех записей
-		env.filterChildEndIter = iter
+		win.filterChildEndIter = iter
 		return true
 	case filterNotTranslate:
 		// Фильтр Не переведенных записей
@@ -553,7 +587,7 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 		textEN, _ := value.GetString()
 
 		if (textRU == "") && (textEN != "") {
-			env.filterChildEndIter = iter
+			win.filterChildEndIter = iter
 			return true
 		} else {
 			return false
@@ -567,7 +601,7 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 		textEN, _ := value.GetString()
 
 		if (textRU != "") && (textEN == "") {
-			env.filterChildEndIter = iter
+			win.filterChildEndIter = iter
 			return true
 		} else {
 			return false
@@ -585,8 +619,8 @@ func (win *MainWindow) ComboFilter_clicked() {
 func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	wintmpl := tmpl.TmplWindowCreate()
-	wintmpl.Col_SourceLang.SetTitle(env.sourceLang)
-	wintmpl.Col_TargetLang.SetTitle(env.targetLang)
+	wintmpl.Col_SourceLang.SetTitle(win.Project.SourceLang)
+	wintmpl.Col_TargetLang.SetTitle(win.Project.TargetLang)
 
 	wintmpl.Window.Resize(cfg.Section("Template").Key("width").MustInt(900), cfg.Section("Template").Key("height").MustInt(400))
 	wintmpl.Window.Move(cfg.Section("Template").Key("posX").MustInt(0), cfg.Section("Template").Key("posY").MustInt(0))
@@ -601,7 +635,7 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 			return before > next
 		})
 
-		tmpl.SaveTmplToFile(TmplList, env.tmplFile)
+		tmpl.SaveTmplToFile(TmplList, win.tmplFile)
 
 		wintmpl.Window.Close()
 	})
@@ -621,7 +655,10 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 	wintmpl.Run(TmplList)
 }
 
-func (win *MainWindow) getFileName(title string) {
+// Запускает диалог выбора файла перевода
+// с указанным заголовком
+// возвращает полный путь к файлу
+func (win *MainWindow) getFileFullPath(title string) string {
 
 	filter_dat, err := gtk.FileFilterNew()
 	errorCheck(err)
@@ -636,8 +673,8 @@ func (win *MainWindow) getFileName(title string) {
 	native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
 	errorCheck(err)
 
-	if env.FilePatch != "" {
-		native.SetCurrentFolder(env.FilePatch)
+	if win.langFilePath != "" {
+		native.SetCurrentFolder(win.langFilePath)
 	}
 	native.AddFilter(filter_dat)
 	native.AddFilter(filter_all)
@@ -650,19 +687,22 @@ func (win *MainWindow) getFileName(title string) {
 		win.Window.Close()
 		log.Fatal("[INFO]\tОтмена выбора файла")
 	}
-	env.FilePatch, _ = native.GetCurrentFolder()
-	env.FileName = native.GetFilename()
+	//win.langFilePath, _ = native.GetCurrentFolder()
+	//win.langFileName = native.GetFilename()
+	FileFullPath := native.GetFilename()
 
 	native.Destroy()
+
+	return FileFullPath
 }
 
 // Сохраняем перевод
-func savedatfile(win *MainWindow, outfile string) {
+func (win *MainWindow) SaveTarget(outfile string) {
 	var sum_all, sum_ru int //Подсчет % перевода
 	sum_all = 0
 	sum_ru = 0
 
-	if env.ClearNotOriginal {
+	if win.clearNotOriginal {
 		log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
 	}
 
@@ -696,7 +736,7 @@ func savedatfile(win *MainWindow, outfile string) {
 			}
 		}
 
-		if env.ClearNotOriginal {
+		if win.clearNotOriginal {
 			// Если есть перевод, а в оригинале такой строчки нет - пропускаем
 			valueEn, err := win.ListStore.GetValue(iter, columnEN)
 			errorCheck(err)
@@ -727,11 +767,8 @@ func savedatfile(win *MainWindow, outfile string) {
 
 	}
 
-	dirs := potbs.SaveDat(outfile, outdata)
-
-	// Создаем dir файл
-	patch, file := filepath.Split(outfile)
-	potbs.SaveDir(patch+str.TrimSuffix(file, filepath.Ext(file))+".dir", dirs)
+	err := win.Project.SaveFile(outfile, outdata)
+	errorCheck(err)
 
 	log.Printf("[INFO]\tПереведено %d из %d (%d%s)", sum_ru, sum_all, int((sum_ru*100)/sum_all), "%")
 	log.Printf("[INFO]\tОсталось: %d строк", int(sum_all-sum_ru))
@@ -744,7 +781,7 @@ func saveXLSXfile(win *MainWindow, outfile string) {
 
 	file := xlsx.NewFile()
 	// Создаем новый лист
-	sheet, err := file.AddSheet(env.targetLang)
+	sheet, err := file.AddSheet(win.Project.TargetLang)
 	errorCheck(err)
 
 	// Заполняем заголовки
@@ -994,7 +1031,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 	_, iter, ok := win.LineSelection.GetSelected()
 	if !ok {
 		//Iter = &win.EndIterator
-		iter, _ = win.Filter.ConvertChildIterToIter(env.filterChildEndIter)
+		iter, _ = win.Filter.ConvertChildIterToIter(win.filterChildEndIter)
 	}
 
 	searchtext := str.ToUpper(text)
@@ -1003,7 +1040,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 		// Берем предыдущую строку, если ее нет, значит дошли до начала - переходим к последнему итератору
 		if !win.Filter.IterPrevious(iter) {
 			//*Iter = win.EndIterator
-			iter, _ = win.Filter.ConvertChildIterToIter(env.filterChildEndIter)
+			iter, _ = win.Filter.ConvertChildIterToIter(win.filterChildEndIter)
 			loop += 1
 		}
 
@@ -1096,7 +1133,7 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 	}
 
 	// отправляем в гугл
-	res, err := tr.Translate(text, env.sourceLang, env.targetLang)
+	res, err := tr.Translate(text, dialog.sourceLang, dialog.targetLang)
 	if err == nil {
 		dialog.BufferRu.SetText(res)
 	}
@@ -1111,4 +1148,16 @@ func errorCheck(e error, text_opt ...string) {
 		// panic for any errors.
 		log.Panic(e)
 	}
+}
+
+func langName(lang string) string {
+	name := str.ToUpper(lang)
+	switch name {
+	case "RU", "EN", "FR", "DE", "ES":
+		return name
+	default:
+		return ""
+	}
+
+	return ""
 }
