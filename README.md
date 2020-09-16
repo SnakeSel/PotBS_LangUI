@@ -6,7 +6,7 @@
 * Поддержка Google Translate.
 ![](screen/main.png)
 ## Установка / Install
-Скачать [актуальный релиз](https://github.com/SnakeSel/PotBS_LangUI/releases)  / Download [release](https://github.com/SnakeSel/PotBS_LangUI/releases) 
+Скачать [актуальный релиз](https://github.com/SnakeSel/PotBS_LangUI/releases)  / Download [release](https://github.com/SnakeSel/PotBS_LangUI/releases)  
 Распаковать архив и запустить / Unpack and run:
 - Windows: `potbs_langui.exe`
 - Linux: `./potbs_langui`
