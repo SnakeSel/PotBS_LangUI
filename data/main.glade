@@ -261,7 +261,8 @@ Translate via Google Translate</property>
                 <property name="tooltip_text" translatable="yes">Отфильтровать строки:
 Все
 Без перевода
-Перевод без оригинала</property>
+Перевод без оригинала
+Пользовательский</property>
                 <property name="double_buffered">False</property>
                 <property name="resize_mode">immediate</property>
                 <property name="active">0</property>
@@ -270,8 +271,21 @@ Translate via Google Translate</property>
                   <item id="0" translatable="yes">ALL</item>
                   <item id="1" translatable="yes">not translated</item>
                   <item id="2" translatable="yes">not in original</item>
+                  <item id="3" translatable="yes">user filter</item>
                 </items>
                 <signal name="changed" handler="main_combo_filter_change" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="entry_userfilter">
+                <property name="can_focus">True</property>
+                <property name="placeholder_text" translatable="yes">filter</property>
+                <signal name="activate" handler="userfilter_activate" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -288,6 +302,7 @@ Translate via Google Translate</property>
                 <property name="primary_icon_name">edit-find-symbolic</property>
                 <property name="primary_icon_activatable">False</property>
                 <property name="primary_icon_sensitive">False</property>
+                <property name="placeholder_text" translatable="yes">search</property>
               </object>
               <packing>
                 <property name="expand">True</property>

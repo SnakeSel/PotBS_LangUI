@@ -55,6 +55,7 @@ const (
 	filterALL = iota
 	filterNotTranslate
 	filterNotOriginal
+	filterUserFilter
 )
 
 type Tlang struct {
@@ -80,6 +81,7 @@ type MainWindow struct {
 	Search       *gtk.SearchEntry
 	Search_Full  *gtk.CheckButton
 	combo_filter *gtk.ComboBoxText
+	userFilter   *gtk.Entry
 
 	ToolBtnSave       *gtk.ToolButton
 	ToolBtnSaveAs     *gtk.ToolButton
@@ -184,6 +186,7 @@ func main() {
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
 			"main_combo_filter_change":     win.ComboFilter_clicked,
+			"userfilter_activate":          win.ComboFilter_clicked,
 			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
 			"dialog_btn_google_tr_clicked": dialog.BtnGoogleTr_clicked,
 		}
@@ -309,6 +312,7 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.Search = gtkutils.GetSearchEntry(b, "entry_search")
 	win.Search_Full = gtkutils.GetCheckButton(b, "chk_full")
 	win.combo_filter = gtkutils.GetComboBoxText(b, "combo_filter")
+	win.userFilter = gtkutils.GetEntry(b, "entry_userfilter")
 
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
@@ -576,10 +580,17 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 	switch win.combo_filter.GetActive() {
 	case filterALL:
 		// Фильтр всех записей
+		if win.userFilter.GetVisible() {
+			win.userFilter.SetVisible(false)
+		}
 		win.filterChildEndIter = iter
 		return true
 	case filterNotTranslate:
 		// Фильтр Не переведенных записей
+		if win.userFilter.GetVisible() {
+			win.userFilter.SetVisible(false)
+		}
+
 		value, _ := model.GetValue(iter, columnRU)
 		textRU, _ := value.GetString()
 
@@ -593,6 +604,10 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 			return false
 		}
 	case filterNotOriginal:
+		if win.userFilter.GetVisible() {
+			win.userFilter.SetVisible(false)
+		}
+
 		// Фильтр записей без оригинала
 		value, _ := model.GetValue(iter, columnRU)
 		textRU, _ := value.GetString()
@@ -605,6 +620,37 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 			return true
 		} else {
 			return false
+		}
+	case filterUserFilter:
+		//Пользовательский фильтр
+		//Запускается по ComboFilter и по активации userFilter
+		// Поэтому если ComboFilter - то просто включаем поле, если поле уже включено, фильтруем
+		if win.userFilter.GetVisible() {
+
+			filter, _ := win.userFilter.GetText()
+			// Если фильтр пуст, выводим все
+			if len(filter) == 0 {
+				win.filterChildEndIter = iter
+				return true
+			}
+
+			filter = str.ToUpper(filter)
+
+			value, _ := model.GetValue(iter, columnRU)
+			textRU, _ := value.GetString()
+
+			value, _ = model.GetValue(iter, columnEN)
+			textEN, _ := value.GetString()
+
+			if str.Contains(str.ToUpper(textRU), filter) || str.Contains(str.ToUpper(textEN), filter) {
+				win.filterChildEndIter = iter
+				return true
+			} else {
+				return false
+			}
+
+		} else {
+			win.userFilter.SetVisible(true)
 		}
 	}
 	return true
