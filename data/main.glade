@@ -390,10 +390,11 @@ Search entire string</property>
     <property name="destroy_with_parent">True</property>
     <property name="type_hint">normal</property>
     <property name="skip_taskbar_hint">True</property>
+    <property name="deletable">False</property>
     <property name="gravity">center</property>
     <property name="transient_for">window_main</property>
     <property name="has_resize_grip">True</property>
-    <signal name="destroy-event" handler="dialog_delete-event" swapped="no"/>
+    <signal name="close" handler="self.hide" swapped="no"/>
     <child internal-child="vbox">
       <object class="GtkBox">
         <property name="can_focus">False</property>

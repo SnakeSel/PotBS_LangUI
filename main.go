@@ -16,6 +16,7 @@ import (
 	"strconv"
 	str "strings"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 
@@ -214,14 +215,13 @@ func main() {
 			}
 		})
 
-		win.Search.Connect("search-changed", func() {
-			//win.Search.SetSensitive(false)
+		win.Search.Connect("activate", func() {
+			//win.Search.Connect("search-changed", func() {
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchNext(searchtext)
 			if patch != nil {
 				win.TreeView.SetCursor(patch, nil, false)
 			}
-			//win.Search.SetSensitive(true)
 		})
 
 		win.BtnClose.Connect("clicked", func() {
@@ -280,6 +280,8 @@ func main() {
 		// Отображаем все виджеты в окне
 		win.Window.Show()
 
+		dialog.Window.SetTransientFor(win.Window)
+
 		application.AddWindow(win.Window)
 		application.AddWindow(dialog.Window)
 
@@ -335,9 +337,9 @@ func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 	obj, err := b.GetObject("dialog_translite")
 	errorCheck(err)
 	dialog.Window = obj.(*gtk.Dialog)
-	dialog.Window.Connect("close", func() {
-		dialog.Window.Hide()
-	})
+
+	// Перехват сигнала нажатия клавишь
+	dialog.Window.Connect("key-press-event", dialog.keyPress, nil)
 
 	//Убираем кнопку "Закрыть(X)"
 	dialog.Window.SetDeletable(false)
@@ -357,6 +359,20 @@ func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
 	dialog.Label = gtkutils.GetLabel(b, "dialog_label")
 
 	return dialog
+}
+
+// Обработка нажатия клавишь в окне диалога
+func (dialog *DialogWindow) keyPress(dial *gtk.Dialog, event *gdk.Event) bool {
+	key := gdk.EventKeyNewFromEvent(event)
+
+	if key.KeyVal() == gdk.KEY_Escape {
+		dialog.Window.Hide()
+		// true означает, что сигнал обработан
+		// и далее его не надо передавать на стандартный обработчик
+		return true
+
+	}
+	return false
 }
 
 func (win *MainWindow) loadFiles() {
@@ -493,7 +509,7 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
-		win.SaveTarget(win.langFileName)
+		win.SaveTarget(win.langFileFullPath)
 		//win.Window.Destroy()
 	}
 
@@ -766,10 +782,6 @@ func (win *MainWindow) SaveTarget(outfile string) {
 	sum_all = 0
 	sum_ru = 0
 
-	if win.clearNotOriginal {
-		log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
-	}
-
 	var line potbs.TData
 	outdata := make([]potbs.TData, 0)
 
@@ -802,6 +814,7 @@ func (win *MainWindow) SaveTarget(outfile string) {
 
 		if win.clearNotOriginal {
 			// Если есть перевод, а в оригинале такой строчки нет - пропускаем
+			log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
 			valueEn, err := win.ListStore.GetValue(iter, columnEN)
 			errorCheck(err)
 			strEN, _ := valueEn.GetString()
@@ -826,6 +839,15 @@ func (win *MainWindow) SaveTarget(outfile string) {
 		if err != nil {
 			log.Printf("[Warn]\tid[%s]: %s\n", line.Id, err.Error())
 		}
+
+		// Проверка на Source=Target
+		// Отключена т.к. много ложных. TODO
+		// valueSource, err := win.ListStore.GetValue(iter, columnEN)
+		// errorCheck(err)
+		// sourceText, _ := valueSource.GetString()
+		// if line.Mode == "ucdt" && line.Text == sourceText && line.Text != "String ID Not Found" && line.Text != ". . ." && line.Text[0:1] != "/" {
+		// 	log.Printf("[warn]\tSource=Target ID: %s\n", line.Id)
+		// }
 
 		next = win.ListStore.IterNext(iter)
 

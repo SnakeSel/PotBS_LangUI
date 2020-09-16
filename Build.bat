@@ -166,7 +166,7 @@ glib-compile-schemas share/glib-2.0/schemas
 
 echo Create Archive
 cd %builddir%\..\
-%sevenz% a "%builddir%\..\..\%proj%_Win64_%today%.7z" "%proj%"
+%sevenz% a "%builddir%\..\..\%proj%_Win64_%today%.7z" "%proj%" "-xr!cfg.ini"
 
 @pause
 exit /b 0
