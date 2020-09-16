@@ -254,7 +254,7 @@ func main() {
 		win.clearNotOriginal = cfg.Section("Main").Key("ClearNotOriginal").MustBool(false)
 
 		// #########################################
-		//Проект перевода
+		// Проект перевода
 		win.Project, _ = potbs.New(potbs.Config{
 			//Debug:     os.Stdout,
 			Debug: log.Writer(),
@@ -364,9 +364,12 @@ func (win *MainWindow) loadFiles() {
 	var lang Tlang
 	DataALL := make(map[string]Tlang)
 
-	// Load source Lang
+	// Load settings
 	win.langFilePath = cfg.Section("Main").Key("Patch").MustString("")
+	win.Project.SourceLang = cfg.Section("Project").Key("SourceLang").MustString("")
+	win.Project.TargetLang = cfg.Section("Project").Key("TargetLang").MustString("")
 
+	// Load source file
 	win.langFileFullPath = win.getFileFullPath("Выберите исходный файл для перевода (Select the source file to translate).")
 	win.langFilePath = filepath.Dir(win.langFileFullPath)
 	win.langFileName = filepath.Base(win.langFileFullPath)
@@ -388,14 +391,21 @@ func (win *MainWindow) loadFiles() {
 		}
 	}
 
-	win.Project.SourceLang = langName(win.langFileName[0:2]) //Добавить проверки
+	// Если SourceLang не задан в настройках, то берем из имени файла
+	// иначе проверяем из настроек
+	if win.Project.SourceLang == "" {
+		win.Project.SourceLang = langName(win.langFileName[0:2])
+	} else {
+		win.Project.SourceLang = langName(win.Project.SourceLang)
+	}
+	// Если даже теперь язык пуст, хреново
 	if win.Project.SourceLang == "" {
 		log.Println("Не определить язык исходного файла")
 	}
 
 	log.Printf("[INFO]\t%s успешно загружен, язык: %s", win.langFileName, win.Project.SourceLang)
 
-	// Load target Lang
+	// Load target file
 	win.langFileFullPath = win.getFileFullPath("Выберите файл перевода (Select the target file to translate)")
 	win.langFilePath = filepath.Dir(win.langFileFullPath)
 	win.langFileName = filepath.Base(win.langFileFullPath)
@@ -422,7 +432,15 @@ func (win *MainWindow) loadFiles() {
 			tmpmap[line.Id+line.Mode] = true
 		}
 	}
-	win.Project.TargetLang = langName(win.langFileName[0:2]) //Добавить проверки
+
+	// Если SourceLang не задан в настройках, то берем из имени файла
+	// иначе проверяем из настроек
+	if win.Project.TargetLang == "" {
+		win.Project.TargetLang = langName(win.langFileName[0:2])
+	} else {
+		win.Project.TargetLang = langName(win.Project.TargetLang)
+	}
+	// Если даже теперь язык пуст, хреново
 	if win.Project.TargetLang == "" {
 		log.Println("Не определить язык конечного файла")
 	}
