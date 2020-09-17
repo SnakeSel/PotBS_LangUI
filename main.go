@@ -257,7 +257,7 @@ func main() {
 		// Проект перевода
 		win.Project, _ = potbs.New(potbs.Config{
 			//Debug:     os.Stdout,
-			Debug: log.Writer(),
+			//Debug: log.Writer(),
 		})
 
 		// Загружаем файлы перевода
@@ -519,7 +519,7 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
-	native.SetCurrentName("out.dat")
+	native.SetCurrentName(win.Project.TargetLang + "_data_mod.dat")
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {

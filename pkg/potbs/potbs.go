@@ -103,6 +103,23 @@ func indexN(str, substr string, n int) int {
 	return pos
 }
 
+func checkModeLine(line string) string {
+	switch {
+	case s.Contains(line, "ucdt"):
+		return "ucdt"
+	case s.Contains(line, "ucdn"):
+		return "ucdn"
+	case s.Contains(line, "mcdt"):
+		return "mcdt"
+	case s.Contains(line, "mcdn"):
+		return "mcdn"
+	default:
+		return ""
+	}
+
+	return ""
+
+}
 func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 
 	// Входной dat файл со списком строк вида:
@@ -130,47 +147,96 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 	// Концом строки считается \r\n
 	scanner.Split(scanCRLF)
 	lineN := 0
+	first := true
+
 	for scanner.Scan() {
+
 		// Подсчитваем длину и разбиваем строку по "\t"
-		if lineN == 0 {
+		if first {
 			// Первая строка сожержит заголовок.
 			// Пока просто отбрасываем 6 байт
 			lineall := scanner.Text()[6:]
 			splitline = s.Split(lineall, "\t")
 			lineLen = len(lineall)
+			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
 		} else {
 			splitline = s.SplitN(scanner.Text(), "\t", 3)
 			lineLen = len(scanner.Bytes())
 			//lineLen = utf8.RuneCount(scanner.Bytes())
+			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
 		}
 
 		// костыль пустой строки
 		if lineLen == 0 {
+			t.log.Printf("[%d] %s\t(%s)", lineN, "пустая строка, пропускаем", scanner.Text())
 			continue
 		}
 
-		line.Id = splitline[0]
+		// Если вдруг вместо \t сделали разделение пробелами
+		if len(splitline) != 3 {
+			chmode := checkModeLine(scanner.Text())
+			if chmode != "" {
+				t.log.Printf("Длинна строки %d, но содержит: %s", len(splitline), chmode)
+				tmpsplitline := s.SplitN(scanner.Text(), chmode, 2)
+				splitline2 := make([]string, 3)
+				//t.log.Println(tmpsplitline)
+				splitline2[0] = s.TrimSpace(tmpsplitline[0])
+				splitline2[1] = chmode
+				splitline2[2] = tmpsplitline[1]
+				splitline = splitline2
+				//t.log.Println(splitline)
+				t.log.Printf("New splitline len: %d", len(splitline))
+			}
+
+		}
+
+		// Определяем появление нового ID.
+		if len(splitline) >= 2 && len(splitline[1]) == 4 {
+			//t.log.Printf("check ID: len %d, mode: %s", len(splitline), splitline[1])
+			if _, ok := strconv.Atoi(splitline[0]); ok == nil {
+				//если только начали, то парсим дальше, если нет, заносим распарсенное
+				if first {
+					line.Id = splitline[0]
+					line.Text = ""
+					first = false
+				} else {
+					t.log.Printf("[%d] EOF id:(%s)", lineN, line.Id)
+					Data = append(Data, line)
+					lineN += 1
+					line.Id = splitline[0]
+					line.Text = ""
+
+				}
+				t.log.Printf("[%d] Start\t id:(%s)", lineN, line.Id)
+			}
+		}
 
 		// Проверяем кол-во разделенных элементов. Должно быть 3
 		if len(splitline) >= 3 {
+			t.log.Println("mode 1 (len3)")
 			line.Mode = splitline[1]
-			line.Text = splitline[2]
+			line.Text = line.Text + splitline[2]
+
 		} else if len(splitline) == 2 {
 			// 2 быват при пустой строке (ucdn)
-			line.Mode = splitline[1]
-			line.Text = ""
+			t.log.Println("mode 2 (len2)")
+			if len(splitline[1]) == 4 {
+				line.Mode = splitline[1]
+				line.Text = ""
+			} else {
+				line.Text += "\n" + scanner.Text()
+			}
 		} else {
 			// При строке с \r\n в середине
-			line.Mode = "none"
-			line.Text = ""
-			continue
+			t.log.Println("mode 3")
+			//line.Mode = "none"
+			line.Text += "\n" + scanner.Text()
 		}
 
-		Data = append(Data, line)
-
-		lineN += 1
-
 	}
+
+	// Заносим последнюю строку
+	Data = append(Data, line)
 
 	return Data, nil
 }
