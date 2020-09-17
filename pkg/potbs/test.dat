@@ -1,0 +1,23 @@
+ï»¿19242	ucdn	
+35188	ucdt	[:PATROL_NEAR_THE_EDGE:]
+52487	ucdt	Торговый галеон 'Сантьяго' (Задание)
+56546317	ucdt	Чем могу помочь?
+56573142	ucdt	Мигающая кнопка справа от вашей мини-карты - кнопка "Добыча".
+Мигающая кнопка слева от вашей мини-карты - кнопка "Выход".
+56629232	ucdt	Очко навыков капитана
+103747781	ucdt	Эти голландцы, про которых вы все говорите... Они не настоящие голландцы, да?
+Тест строки
+
+и тут тоже текст
+103785448	ucdt	Выразить свое замешательство, всплеснув руками.
+234123428	ucdn	
+234139142	mcdt	Как идут дела, капитан?	0088	d_loot_jaguar_collection.Text.d_loot_jaguar_collection_deliver_deliveryrecipientgreeting
+234139142	mcdt	[:_GENERIC_:]	0047	personas.Text.generic_avlieut_attacker_lastname
+3061864204	ucdt    Личное письмо
+3011275095	mcdt	Vous êtes corsaire, #ml("chargé")#fl("chargée") par une lettre de marque de traquer et détruire les ennemis de la Couronne où qu'ils soient. Bien que vos ennemis vous
+
+En tant que membre de la carrière corsaire, votre équipage est entraîné et fourni sur votre cassette personnelle, ce qui mène à un feu de canon plus précis.
+École de combat : Combat en traître
+    0045	default.Text.charcreate_career_privateer_desc
+3061881732	mcdn		0046	personas.Text.spsbnqui_fencingtrainer_lastname
+3061881732	mcdt	NYI	0071	c2_inlikeflynn_f01.Text.c2_inlikeflynn_f01_per_2_fr_personaplayerprompt
