@@ -8,6 +8,7 @@ import (
 
 	s "strings"
 
+	"container/list"
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,17 +25,24 @@ type Config struct {
 	Debug io.Writer
 }
 
+type tDir struct {
+	Id     int
+	pos    int
+	lenght int
+}
+
 type Translate struct {
 	//err error
 
 	log        *log.Logger
 	conf       *Config
-	SourceLang string
-	TargetLang string
+	sourceLang string
+	targetLang string
+	header     map[string]int
 }
 
 // New returns a new Translate.
-func New(conf Config) (*Translate, error) {
+func New(conf Config) *Translate {
 
 	t := &Translate{conf: &conf}
 
@@ -42,21 +50,15 @@ func New(conf Config) (*Translate, error) {
 		conf.Debug = ioutil.Discard
 	}
 
+	t.header = map[string]int{
+		"id":   0,
+		"mode": 1,
+		"text": 2,
+	}
+
 	t.log = log.New(conf.Debug, "[potbs]: ", log.LstdFlags)
 
-	return t, nil
-}
-
-type TData struct {
-	Id   string
-	Mode string
-	Text string
-}
-
-type tDir struct {
-	Id     int
-	pos    int
-	lenght int
+	return t
 }
 
 // dropCR drops a terminal \r from the data.
@@ -120,7 +122,43 @@ func checkModeLine(line string) string {
 	return ""
 
 }
-func (t *Translate) LoadFile(filepach string) ([]TData, error) {
+
+func (t *Translate) SetSourceLang(lang string) {
+	t.sourceLang = lang
+}
+
+func (t *Translate) GetSourceLang() string {
+	return t.sourceLang
+
+}
+func (t *Translate) SetTargetLang(lang string) {
+	t.targetLang = lang
+
+}
+func (t *Translate) GetTargetLang() string {
+	return t.targetLang
+
+}
+
+func (t *Translate) GetHeaderLen() int {
+	return len(t.header)
+}
+func (t *Translate) GetHeader() map[string]int {
+	return t.header
+}
+
+// Возвращает номер заголовка с указанным именем.
+// Если такого имени нет, вернет -1
+func (t *Translate) GetHeaderNbyName(name string) int {
+	if val, ok := t.header[name]; ok {
+		return val
+	} else {
+		return -1
+	}
+
+}
+
+func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 
 	// Входной dat файл со списком строк вида:
 	// <id>\t<вид строки>\t<строка>\r\n
@@ -130,17 +168,22 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 	// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
 	// mcdn - Пустая строка со скриптом
 
-	Data := make([]TData, 0)
+	id := t.GetHeaderNbyName("id")
+	text := t.GetHeaderNbyName("text")
+	mode := t.GetHeaderNbyName("mode")
+
+	Data := list.New()
 
 	file, err := os.Open(filepach)
 	if err != nil {
-		return nil, err
+		return list.New(), err
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 
-	var line TData
+	//var line []string
+	line := make([]string, 3)
 	var lineLen int
 	var splitline []string
 
@@ -196,52 +239,58 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 			if _, ok := strconv.Atoi(splitline[0]); ok == nil {
 				//если только начали, то парсим дальше, если нет, заносим распарсенное
 				if first {
-					line.Id = splitline[0]
-					line.Text = ""
+					line[id] = splitline[0]
+					line[text] = ""
 					first = false
 				} else {
-					t.log.Printf("[%d] EOF id:(%s)", lineN, line.Id)
-					Data = append(Data, line)
+					t.log.Printf("[%d] EOF id:(%s)", lineN, line[id])
+					Data.PushBack(line)
+					line = make([]string, 3)
 					lineN += 1
-					line.Id = splitline[0]
-					line.Text = ""
+					line[id] = splitline[0]
+					line[text] = ""
 
 				}
-				t.log.Printf("[%d] Start\t id:(%s)", lineN, line.Id)
+				t.log.Printf("[%d] Start\t id:(%s)", lineN, line[id])
 			}
 		}
 
 		// Проверяем кол-во разделенных элементов. Должно быть 3
 		if len(splitline) >= 3 {
 			t.log.Println("mode 1 (len3)")
-			line.Mode = splitline[1]
-			line.Text = line.Text + splitline[2]
+			line[mode] = splitline[1]
+			line[text] = line[text] + splitline[2]
 
 		} else if len(splitline) == 2 {
 			// 2 быват при пустой строке (ucdn)
 			t.log.Println("mode 2 (len2)")
 			if len(splitline[1]) == 4 {
-				line.Mode = splitline[1]
-				line.Text = ""
+				line[mode] = splitline[1]
+				line[text] = ""
 			} else {
-				line.Text += "\n" + scanner.Text()
+				line[text] += "\n" + scanner.Text()
 			}
 		} else {
 			// При строке с \r\n в середине
 			t.log.Println("mode 3")
 			//line.Mode = "none"
-			line.Text += "\n" + scanner.Text()
+			line[text] += "\n" + scanner.Text()
 		}
 
 	}
 
 	// Заносим последнюю строку
-	Data = append(Data, line)
+	Data.PushBack(line)
 
 	return Data, nil
 }
 
-func (t *Translate) SaveFile(filepach string, Datas []TData) error {
+func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
+
+	id := t.GetHeaderNbyName("id")
+	text := t.GetHeaderNbyName("text")
+	mode := t.GetHeaderNbyName("mode")
+
 	dirs := make([]tDir, 0)
 	var dir tDir
 	var linelen int
@@ -254,34 +303,39 @@ func (t *Translate) SaveFile(filepach string, Datas []TData) error {
 	}
 	defer filedat.Close()
 
-	for id, line := range Datas {
-		if id == 0 {
-			filedat.WriteString(fmt.Sprintf("%s%s\t%s\t%s\r\n", BeginByte, line.Id, line.Mode, line.Text))
+	// Iterate through list and print its contents.
+	first := true
+	for e := Datas.Front(); e != nil; e = e.Next() {
+		line := e.Value.([]string)
+		t.log.Println(line)
+		if first {
+			filedat.WriteString(fmt.Sprintf("%s%s\t%s\t%s\r\n", BeginByte, line[id], line[mode], line[text]))
 			pos += 6 //BeginByte
+			first = false
 		} else {
-			filedat.WriteString(fmt.Sprintf("%s\t%s\t%s\r\n", line.Id, line.Mode, line.Text))
+			filedat.WriteString(fmt.Sprintf("%s\t%s\t%s\r\n", line[id], line[mode], line[text]))
 		}
 
-		dir.Id, _ = strconv.Atoi(line.Id)
+		dir.Id, _ = strconv.Atoi(line[id])
 		dir.pos = pos
 
 		// Расчитываем длину строки
-		linelen = len(line.Id)
+		linelen = len(line[id])
 		linelen += 1 //\t
-		linelen += len(line.Mode)
+		linelen += len(line[mode])
 		linelen += 1 //\t
 		mcdtlen := linelen
-		linelen += len(line.Text)
+		linelen += len(line[text])
 		// Ебала с размером. В позицию идет вся длинна (linelen), а в размер только длина текста (mcdtlen).
-		switch line.Mode {
+		switch line[mode] {
 		case "mcdt":
 			// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
-			ind := s.Index(line.Text, "\t")
+			ind := s.Index(line[text], "\t")
 			// -1 - не найдено
 			if ind == -1 {
 				mcdtlen = linelen
 			} else {
-				mcdtlen += len(line.Text[:ind])
+				mcdtlen += len(line[text][:ind])
 			}
 			dir.lenght = mcdtlen
 		case "mcdn":
@@ -311,7 +365,7 @@ func (t *Translate) SaveFile(filepach string, Datas []TData) error {
 	filedir.WriteString(fmt.Sprintf("## Count:\t%d\r\n", len(dirs)))
 	filedir.WriteString("## Game:\tPBS\r\n")
 
-	locale := langName(t.TargetLang)
+	locale := langName(t.GetTargetLang())
 	if locale != "" {
 		filedir.WriteString(fmt.Sprintf("## Locale:\t%s\r\n", locale))
 	}

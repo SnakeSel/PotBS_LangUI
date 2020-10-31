@@ -5,12 +5,14 @@ package main
 import (
 	"log"
 
+	//"github.com/snakesel/potbs_langui/pkg/apkstrings"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/potbs"
 	"github.com/snakesel/potbs_langui/pkg/tmpl"
 
 	tr "github.com/bas24/googletranslatefree"
 
+	"container/list"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -27,7 +29,7 @@ import (
 )
 
 const (
-	version   = "20200916"
+	version   = "20201030"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -37,10 +39,19 @@ const (
 var TmplList []tmpl.TTmpl
 var cfg *ini.File
 
-// type ifaceTranslate interface {
-// 	LoadFile(string) []potbs.TData
-// 	SaveFile(string, []potbs.TData)
-// }
+type intProject interface {
+	LoadFile(string) (*list.List, error)
+	SaveFile(string, *list.List) error
+
+	SetSourceLang(string)
+	GetSourceLang() string
+	SetTargetLang(string)
+	GetTargetLang() string
+
+	GetHeaderLen() int
+	GetHeader() map[string]int
+	GetHeaderNbyName(string) int
+}
 
 // IDs to access the tree view columns by
 const (
@@ -60,10 +71,10 @@ const (
 )
 
 type Tlang struct {
-	id   string `xlsx:"0"`
-	mode string `xlsx:"1"`
-	en   string `xlsx:"2"`
-	ru   string `xlsx:"3"`
+	id     string `xlsx:"0"`
+	mode   string `xlsx:"1"`
+	source string `xlsx:"2"`
+	target string `xlsx:"3"`
 }
 
 type MainWindow struct {
@@ -93,15 +104,15 @@ type MainWindow struct {
 	Renderer_ru *gtk.CellRendererText
 
 	Iterator *gtk.TreeIter
-	//Project  ifaceTranslate
-	Project *potbs.Translate
+	Project  intProject
+	//Project *potbs.Translate
 
 	tmplFile           string        // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
 	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
 	clearNotOriginal   bool          // не сохранять строки которых нет в оригинале
-	langFileFullPath   string        // Хранит путь к файлу и имя файла с переводом
-	langFilePath       string        // Хранит путь к файлу с переводом
-	langFileName       string        // Хранит только имя файла перевода
+	//langFileFullPath   string        // Хранит путь к файлу и имя файла с переводом
+	langFilePath string // Хранит путь к файлу с переводом
+	langFileName string // Хранит только имя файла перевода
 }
 
 type DialogWindow struct {
@@ -253,23 +264,62 @@ func main() {
 
 		win.clearNotOriginal = cfg.Section("Main").Key("ClearNotOriginal").MustBool(false)
 
+		// Путь к файлам
+		win.langFilePath = cfg.Section("Main").Key("Patch").MustString("")
+
 		// #########################################
-		// Проект перевода
-		win.Project, _ = potbs.New(potbs.Config{
-			//Debug:     os.Stdout,
-			//Debug: log.Writer(),
-		})
 
-		// Загружаем файлы перевода
-		win.loadFiles()
+		// Получаем пути к файлам перевода
+		sourceFile, targetFile, extFile := win.getFileNames()
 
-		win.TreeView.GetColumn(columnEN).SetTitle(win.Project.SourceLang)
-		win.TreeView.GetColumn(columnRU).SetTitle(win.Project.TargetLang)
+		switch extFile {
+		case ".xls":
+			//win.Project = apkstrings.New(apkstrings.Config{})
+		default:
+			// Проект перевода
+			win.Project = potbs.New(potbs.Config{
+				//Debug:     os.Stdout,
+				//Debug: log.Writer(),
+			})
 
-		dialog.sourceLang = win.Project.SourceLang
-		dialog.targetLang = win.Project.TargetLang
+		}
 
-		win.tmplFile = tmplPatch + "_" + win.Project.SourceLang + "-" + win.Project.TargetLang
+		// Загружаем язык перевода
+		win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString(""))
+		win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString(""))
+
+		if extFile == ".dat" {
+			// Если SourceLang не задан в настройках, то берем из имени файла
+			// иначе проверяем из настроек
+			if win.Project.GetSourceLang() == "" {
+				win.Project.SetSourceLang(str.ToUpper(filepath.Base(sourceFile)[0:2]))
+			}
+			// Если даже теперь язык пуст, хреново
+			if win.Project.GetSourceLang() == "" {
+				log.Println("Не определить язык исходного файла")
+			}
+
+			// Если SourceLang не задан в настройках, то берем из имени файла
+			// иначе проверяем из настроек
+			if win.Project.GetTargetLang() == "" {
+				win.Project.SetTargetLang(str.ToUpper(filepath.Base(targetFile)[0:2]))
+			}
+			// Если даже теперь язык пуст, хреново
+			if win.Project.GetTargetLang() == "" {
+				log.Println("Не определить язык конечного файла")
+			}
+		}
+
+		// Загружаем файлы перевода и выводим в таблицу
+		win.loadListStore(sourceFile, targetFile)
+
+		win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
+		win.TreeView.GetColumn(columnRU).SetTitle(win.Project.GetTargetLang())
+
+		dialog.sourceLang = win.Project.GetSourceLang()
+		dialog.targetLang = win.Project.GetTargetLang()
+
+		win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
 
 		// Загружаем шаблоны
 		TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
@@ -375,99 +425,127 @@ func (dialog *DialogWindow) keyPress(dial *gtk.Dialog, event *gdk.Event) bool {
 	return false
 }
 
-func (win *MainWindow) loadFiles() {
+// Запускает диалог выбора файла перевода
+// с указанным заголовком
+// возвращает полный путь к файлу
+func (win *MainWindow) fileChooserFullPath(title string) string {
+
+	filter_dat, err := gtk.FileFilterNew()
+	errorCheck(err)
+	filter_dat.AddPattern("*.dat")
+	filter_dat.SetName(".dat")
+
+	filter_all, err := gtk.FileFilterNew()
+	errorCheck(err)
+	filter_all.AddPattern("*")
+	filter_all.SetName("Any files")
+
+	native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
+	errorCheck(err)
+
+	if win.langFilePath != "" {
+		native.SetCurrentFolder(win.langFilePath)
+	}
+	native.AddFilter(filter_dat)
+	native.AddFilter(filter_all)
+	native.SetFilter(filter_dat)
+
+	respons := native.Run()
+
+	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
+	if respons != int(gtk.RESPONSE_ACCEPT) {
+		win.Window.Close()
+		log.Fatal("[INFO]\tОтмена выбора файла")
+	}
+	//win.langFilePath, _ = native.GetCurrentFolder()
+	//win.langFileName = native.GetFilename()
+	FileFullPath := native.GetFilename()
+
+	native.Destroy()
+
+	return FileFullPath
+}
+
+func (win *MainWindow) getFileNames() (sourceName, targetName, extName string) {
+
+	// open source file
+	sourceName = win.fileChooserFullPath("Выберите исходный файл для перевода (Select the source file to translate).")
+	//win.langFilePath = filepath.Dir(sourceName)
+	//win.langFileName = filepath.Base(sourceName)
+	extName = filepath.Ext(sourceName)
+	//log.Println(extName)
+
+	// open target file
+	targetName = win.fileChooserFullPath("Выберите файл перевода (Select the target file to translate)")
+	win.langFilePath = filepath.Dir(targetName)
+	win.langFileName = filepath.Base(targetName)
+
+	return sourceName, targetName, extName
+}
+
+func (win *MainWindow) loadListStore(sourceName, targetName string) {
+
+	id := win.Project.GetHeaderNbyName("id")
+	mode := win.Project.GetHeaderNbyName("mode")
+	text := win.Project.GetHeaderNbyName("text")
 
 	var lang Tlang
 	DataALL := make(map[string]Tlang)
 
-	// Load settings
-	win.langFilePath = cfg.Section("Main").Key("Patch").MustString("")
-	win.Project.SourceLang = cfg.Section("Project").Key("SourceLang").MustString("")
-	win.Project.TargetLang = cfg.Section("Project").Key("TargetLang").MustString("")
-
-	// Load source file
-	win.langFileFullPath = win.getFileFullPath("Выберите исходный файл для перевода (Select the source file to translate).")
-	win.langFilePath = filepath.Dir(win.langFileFullPath)
-	win.langFileName = filepath.Base(win.langFileFullPath)
-
-	Data, err := win.Project.LoadFile(win.langFileFullPath)
+	Data, err := win.Project.LoadFile(sourceName)
 	errorCheck(err)
 
-	for _, line := range Data {
-		lang.id = line.Id
-		lang.mode = line.Mode
-		lang.en = line.Text
+	for e := Data.Front(); e != nil; e = e.Next() {
+		line := e.Value.([]string)
+
+		lang.id = line[id]
+		lang.mode = line[mode]
+		lang.source = line[text]
 		//DataALL[line.Id+line.Mode] = lang
 
 		// Проверяем, если уже есть такой id, добавляем _ (т.к. id+mode не уникален)
-		if _, ok := DataALL[line.Id+line.Mode]; ok {
-			DataALL[line.Id+line.Mode+"_"] = lang
+		if _, ok := DataALL[line[id]+line[mode]]; ok {
+			DataALL[line[id]+line[mode]+"_"] = lang
 		} else {
-			DataALL[line.Id+line.Mode] = lang
+			DataALL[line[id]+line[mode]] = lang
 		}
 	}
 
-	// Если SourceLang не задан в настройках, то берем из имени файла
-	// иначе проверяем из настроек
-	if win.Project.SourceLang == "" {
-		win.Project.SourceLang = langName(win.langFileName[0:2])
-	} else {
-		win.Project.SourceLang = langName(win.Project.SourceLang)
-	}
-	// Если даже теперь язык пуст, хреново
-	if win.Project.SourceLang == "" {
-		log.Println("Не определить язык исходного файла")
-	}
-
-	log.Printf("[INFO]\t%s успешно загружен, язык: %s", win.langFileName, win.Project.SourceLang)
+	log.Printf("[INFO]\t%s успешно загружен, язык: %s", filepath.Base(sourceName), win.Project.GetSourceLang())
 
 	// Load target file
-	win.langFileFullPath = win.getFileFullPath("Выберите файл перевода (Select the target file to translate)")
-	win.langFilePath = filepath.Dir(win.langFileFullPath)
-	win.langFileName = filepath.Base(win.langFileFullPath)
 
-	Data, err = win.Project.LoadFile(win.langFileFullPath)
+	Data, err = win.Project.LoadFile(targetName)
 	errorCheck(err)
 
 	tmpmap := make(map[string]bool)
-	for _, line := range Data {
-		lang.id = line.Id
-		lang.mode = line.Mode
-		//lang.en = DataALL[line.Id+line.Mode].en
-		lang.ru = line.Text
+	for e := Data.Front(); e != nil; e = e.Next() {
+		line := e.Value.([]string)
+
+		lang.id = line[id]
+		lang.mode = line[mode]
+		lang.target = line[text]
 		//DataALL[line.Id+line.Mode] = lang
 
 		// Проверяем, если уже есть такой id, добавляем _ (т.к. id+mode не уникален)
-		if _, ok := tmpmap[line.Id+line.Mode]; ok {
-			lang.en = DataALL[line.Id+line.Mode+"_"].en
-			DataALL[line.Id+line.Mode+"_"] = lang
-			tmpmap[line.Id+line.Mode+"_"] = true
+		if _, ok := tmpmap[line[id]+line[mode]]; ok {
+			lang.source = DataALL[line[id]+line[mode]+"_"].source
+			DataALL[line[id]+line[mode]+"_"] = lang
+			tmpmap[line[id]+line[mode]+"_"] = true
 		} else {
-			lang.en = DataALL[line.Id+line.Mode].en
-			DataALL[line.Id+line.Mode] = lang
-			tmpmap[line.Id+line.Mode] = true
+			lang.source = DataALL[line[id]+line[mode]].source
+			DataALL[line[id]+line[mode]] = lang
+			tmpmap[line[id]+line[mode]] = true
 		}
 	}
 
-	// Если SourceLang не задан в настройках, то берем из имени файла
-	// иначе проверяем из настроек
-	if win.Project.TargetLang == "" {
-		win.Project.TargetLang = langName(win.langFileName[0:2])
-	} else {
-		win.Project.TargetLang = langName(win.Project.TargetLang)
-	}
-	// Если даже теперь язык пуст, хреново
-	if win.Project.TargetLang == "" {
-		log.Println("Не определить язык конечного файла")
-	}
-
-	log.Printf("[INFO]\t%s успешно загружен, язык: %s", win.langFileName, win.Project.TargetLang)
+	log.Printf("[INFO]\t%s успешно загружен, язык: %s", filepath.Base(targetName), win.Project.GetTargetLang())
 
 	//Сортируем
 	lines := make([]Tlang, 0, len(DataALL))
 
 	for _, v := range DataALL {
-		lines = append(lines, Tlang{v.id, v.mode, v.en, v.ru})
+		lines = append(lines, Tlang{v.id, v.mode, v.source, v.target})
 	}
 
 	sort.SliceStable(lines, func(i, j int) bool {
@@ -478,14 +556,9 @@ func (win *MainWindow) loadFiles() {
 
 	//Выводим в таблицу
 	for _, line := range lines {
-		err := addRow(win.ListStore, line.id, line.mode, line.en, line.ru)
+		err := addRow(win.ListStore, line.id, line.mode, line.source, line.target)
 		errorCheck(err)
 	}
-
-	//color := *gdk.NewRGBA(239,41,41)
-	//win.Renderer_ru.SetProperty("background-rgba", win.ListStore.GetColumnType(columnRuColor))
-
-	//win.Renderer_ru.SetProperty("background-set", true)
 }
 
 func (win *MainWindow) saveCfg() {
@@ -509,7 +582,7 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
-		win.SaveTarget(win.langFileFullPath)
+		win.SaveTarget(filepath.Join(win.langFilePath, win.langFilePath))
 		//win.Window.Destroy()
 	}
 
@@ -519,7 +592,7 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
-	native.SetCurrentName(win.Project.TargetLang + "_data_mod.dat")
+	native.SetCurrentName(win.Project.GetTargetLang() + "_data_mod.dat")
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
@@ -534,7 +607,7 @@ func (win *MainWindow) ToolBtnExportXLSX_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
-	native.SetCurrentName(win.Project.SourceLang + "-" + win.Project.TargetLang + ".xlsx")
+	native.SetCurrentName(win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang() + ".xlsx")
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
@@ -699,8 +772,8 @@ func (win *MainWindow) ComboFilter_clicked() {
 func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	wintmpl := tmpl.TmplWindowCreate()
-	wintmpl.Col_SourceLang.SetTitle(win.Project.SourceLang)
-	wintmpl.Col_TargetLang.SetTitle(win.Project.TargetLang)
+	wintmpl.Col_SourceLang.SetTitle(win.Project.GetSourceLang())
+	wintmpl.Col_TargetLang.SetTitle(win.Project.GetTargetLang())
 
 	wintmpl.Window.Resize(cfg.Section("Template").Key("width").MustInt(900), cfg.Section("Template").Key("height").MustInt(400))
 	wintmpl.Window.Move(cfg.Section("Template").Key("posX").MustInt(0), cfg.Section("Template").Key("posY").MustInt(0))
@@ -735,55 +808,18 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 	wintmpl.Run(TmplList)
 }
 
-// Запускает диалог выбора файла перевода
-// с указанным заголовком
-// возвращает полный путь к файлу
-func (win *MainWindow) getFileFullPath(title string) string {
-
-	filter_dat, err := gtk.FileFilterNew()
-	errorCheck(err)
-	filter_dat.AddPattern("*.dat")
-	filter_dat.SetName(".dat")
-
-	filter_all, err := gtk.FileFilterNew()
-	errorCheck(err)
-	filter_all.AddPattern("*")
-	filter_all.SetName("Any files")
-
-	native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
-	errorCheck(err)
-
-	if win.langFilePath != "" {
-		native.SetCurrentFolder(win.langFilePath)
-	}
-	native.AddFilter(filter_dat)
-	native.AddFilter(filter_all)
-	native.SetFilter(filter_dat)
-
-	respons := native.Run()
-
-	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
-	if respons != int(gtk.RESPONSE_ACCEPT) {
-		win.Window.Close()
-		log.Fatal("[INFO]\tОтмена выбора файла")
-	}
-	//win.langFilePath, _ = native.GetCurrentFolder()
-	//win.langFileName = native.GetFilename()
-	FileFullPath := native.GetFilename()
-
-	native.Destroy()
-
-	return FileFullPath
-}
-
 // Сохраняем перевод
 func (win *MainWindow) SaveTarget(outfile string) {
 	var sum_all, sum_ru int //Подсчет % перевода
 	sum_all = 0
 	sum_ru = 0
 
-	var line potbs.TData
-	outdata := make([]potbs.TData, 0)
+	id := win.Project.GetHeaderNbyName("id")
+	text := win.Project.GetHeaderNbyName("text")
+	mode := win.Project.GetHeaderNbyName("mode")
+
+	line := make([]string, 3)
+	outdata := list.New()
 
 	iter, _ := win.ListStore.GetIterFirst()
 	next := true
@@ -795,19 +831,19 @@ func (win *MainWindow) SaveTarget(outfile string) {
 		valueRu, err := win.ListStore.GetValue(iter, columnRU)
 		errorCheck(err)
 
-		line.Id, _ = valueId.GetString()
-		line.Mode, _ = valueMode.GetString()
-		if line.Mode == "ucdt" {
+		line[id], _ = valueId.GetString()
+		line[mode], _ = valueMode.GetString()
+		if line[mode] == "ucdt" {
 			val, _ := valueRu.GetString()
-			line.Text = str.ReplaceAll(val, "\t", " ")
+			line[text] = str.ReplaceAll(val, "\t", " ")
 		} else {
-			line.Text, _ = valueRu.GetString()
+			line[text], _ = valueRu.GetString()
 		}
 
 		//Подсчет % перевода
-		if line.Mode != "ucdn" {
+		if line[mode] != "ucdn" {
 			sum_all += 1
-			if line.Text != "" {
+			if line[text] != "" {
 				sum_ru += 1
 			}
 		}
@@ -818,7 +854,7 @@ func (win *MainWindow) SaveTarget(outfile string) {
 			valueEn, err := win.ListStore.GetValue(iter, columnEN)
 			errorCheck(err)
 			strEN, _ := valueEn.GetString()
-			if len(line.Text) != 0 && len(strEN) == 0 {
+			if len(line[text]) != 0 && len(strEN) == 0 {
 				next = win.ListStore.IterNext(iter)
 				continue
 			}
@@ -827,17 +863,18 @@ func (win *MainWindow) SaveTarget(outfile string) {
 
 		// Если русского перевода нет, и это текстовая строка (ucdt), пропускаем. Может быть(ucgt)
 		//if line.Text == "" && line.Mode == "ucdt" {
-		if line.Text == "" && line.Mode != "ucdn" {
+		if line[text] == "" && line[mode] != "ucdn" {
 			next = win.ListStore.IterNext(iter)
 			continue
 		}
 
-		outdata = append(outdata, line)
+		outdata.PushBack(line)
+		line = make([]string, 3)
 
 		// Проверка перевода на ошибки
-		err = potbs.ValidateTranslate(line.Text)
+		err = potbs.ValidateTranslate(line[text])
 		if err != nil {
-			log.Printf("[Warn]\tid[%s]: %s\n", line.Id, err.Error())
+			log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
 		}
 
 		// Проверка на Source=Target
@@ -867,7 +904,7 @@ func saveXLSXfile(win *MainWindow, outfile string) {
 
 	file := xlsx.NewFile()
 	// Создаем новый лист
-	sheet, err := file.AddSheet(win.Project.TargetLang)
+	sheet, err := file.AddSheet(win.Project.GetTargetLang())
 	errorCheck(err)
 
 	// Заполняем заголовки
@@ -898,12 +935,12 @@ func saveXLSXfile(win *MainWindow, outfile string) {
 
 		line.id, _ = valueId.GetString()
 		line.mode, _ = valueMode.GetString()
-		line.en, _ = valueEN.GetString()
+		line.source, _ = valueEN.GetString()
 		if line.mode == "ucdt" {
 			val, _ := valueRu.GetString()
-			line.ru = str.ReplaceAll(val, "\t", " ")
+			line.target = str.ReplaceAll(val, "\t", " ")
 		} else {
-			line.ru, _ = valueRu.GetString()
+			line.target, _ = valueRu.GetString()
 		}
 
 		// Заполняем XLSX
@@ -914,9 +951,9 @@ func saveXLSXfile(win *MainWindow, outfile string) {
 		cell = row.AddCell()
 		cell.Value = line.mode
 		cell = row.AddCell()
-		cell.Value = line.en
+		cell.Value = line.source
 		cell = row.AddCell()
-		cell.Value = line.ru
+		cell.Value = line.target
 
 		next = win.Filter.IterNext(iter)
 
@@ -954,10 +991,10 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 		if row != nil {
 			line.id = row.GetCell(columnID).Value
 			line.mode = row.GetCell(columnMode).Value
-			line.en = row.GetCell(columnEN).Value
-			line.ru = row.GetCell(columnRU).Value
+			line.source = row.GetCell(columnEN).Value
+			line.target = row.GetCell(columnRU).Value
 			// Добавляем только строки с переводом
-			if line.ru != "" {
+			if line.target != "" {
 				Data[line.id+line.mode] = line
 			}
 		}
@@ -985,7 +1022,7 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 
 		valueEN, err := win.ListStore.GetValue(iter, columnEN)
 		errorCheck(err)
-		line.en, _ = valueEN.GetString()
+		line.source, _ = valueEN.GetString()
 
 		// Если импортируем только новые, проверяем перевод
 		if !importALL {
@@ -995,8 +1032,8 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 			if text, _ := valueRu.GetString(); text == "" {
 				if val, ok := Data[line.id+line.mode]; ok {
 					// Т.к. id+mode не уникален
-					if line.en == val.en {
-						win.ListStore.SetValue(iter, columnRU, val.ru)
+					if line.source == val.source {
+						win.ListStore.SetValue(iter, columnRU, val.target)
 						//log.Println("[INFO]\tДобавлен перевод для записи: " + val.id)
 					} else {
 						log.Printf("[WARN]\tПропускаем запись %s, текст оригинала не совпадает.", val.id)
@@ -1007,8 +1044,8 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 		} else {
 			if val, ok := Data[line.id+line.mode]; ok {
 				// Т.к. id+mode не уникален
-				if line.en == val.en {
-					win.ListStore.SetValue(iter, columnRU, val.ru)
+				if line.source == val.source {
+					win.ListStore.SetValue(iter, columnRU, val.target)
 				}
 				//log.Println("[INFO]\tДобавлен перевод для записи: " + val.id)
 			}
