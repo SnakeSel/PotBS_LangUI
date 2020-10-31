@@ -582,7 +582,7 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
-		win.SaveTarget(filepath.Join(win.langFilePath, win.langFilePath))
+		win.SaveTarget(filepath.Join(win.langFilePath, win.langFileName))
 		//win.Window.Destroy()
 	}
 
@@ -591,13 +591,13 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
-	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
+	native.SetCurrentFolder(win.langFilePath)
 	native.SetCurrentName(win.Project.GetTargetLang() + "_data_mod.dat")
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
 		win.SaveTarget(native.GetFilename())
-		log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
+		//log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
 		//win.Window.Destroy()
 	}
 
@@ -892,6 +892,7 @@ func (win *MainWindow) SaveTarget(outfile string) {
 
 	err := win.Project.SaveFile(outfile, outdata)
 	errorCheck(err)
+	log.Printf("[INFO]\tФайл %s сохранен.\n", outfile)
 
 	log.Printf("[INFO]\tПереведено %d из %d (%d%s)", sum_ru, sum_all, int((sum_ru*100)/sum_all), "%")
 	log.Printf("[INFO]\tОсталось: %d строк", int(sum_all-sum_ru))
