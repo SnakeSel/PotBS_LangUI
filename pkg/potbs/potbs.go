@@ -39,6 +39,7 @@ type Translate struct {
 	sourceLang string
 	targetLang string
 	header     map[string]int
+	moduleName string
 }
 
 // New returns a new Translate.
@@ -57,6 +58,8 @@ func New(conf Config) *Translate {
 	}
 
 	t.log = log.New(conf.Debug, "[potbs]: ", log.LstdFlags)
+
+	t.moduleName = "potbs"
 
 	return t
 }
@@ -145,6 +148,10 @@ func (t *Translate) GetHeaderLen() int {
 }
 func (t *Translate) GetHeader() map[string]int {
 	return t.header
+}
+
+func (t *Translate) GetModuleName() string {
+	return t.moduleName
 }
 
 // Возвращает номер заголовка с указанным именем.

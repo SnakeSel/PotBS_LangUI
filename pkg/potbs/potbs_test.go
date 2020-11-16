@@ -15,6 +15,7 @@ const (
 
 	datSize = 1692 // Размер создаваемого файла
 	dirSize = 321  // Размер создаваемого файла
+
 )
 
 var checkLen = map[int]int{
@@ -82,7 +83,7 @@ func TestAll(t *testing.T) {
 	}
 
 	//Убираем временные файлы
-	//os.Remove(testoutdat)
-	//os.Remove(testoutdir)
+	os.Remove(testoutdat)
+	os.Remove(testoutdir)
 
 }
