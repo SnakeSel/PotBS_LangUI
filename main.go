@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	version   = "20201030"
+	version   = "20201222"
 	appId     = "snakesel.potbs-langui"
 	MainGlade = "data/main.glade"
 	tmplPatch = "data/tmpl"
@@ -756,8 +756,8 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 			win.userFilter.SetVisible(false)
 		}
 
-		textRU, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
-		textEN, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+		textRU, _ := gtkutils.GetFilterValueString(model, iter, columnRU)
+		textEN, _ := gtkutils.GetFilterValueString(model, iter, columnEN)
 
 		if (textRU == "") && (textEN != "") {
 			win.filterChildEndIter = iter
@@ -771,8 +771,8 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 		}
 
 		// Фильтр записей без оригинала
-		textRU, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
-		textEN, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+		textRU, _ := gtkutils.GetFilterValueString(model, iter, columnRU)
+		textEN, _ := gtkutils.GetFilterValueString(model, iter, columnEN)
 
 		if (textRU != "") && (textEN == "") {
 			win.filterChildEndIter = iter
@@ -795,8 +795,8 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 
 			filter = str.ToUpper(filter)
 
-			textRU, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
-			textEN, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+			textRU, _ := gtkutils.GetFilterValueString(model, iter, columnRU)
+			textEN, _ := gtkutils.GetFilterValueString(model, iter, columnEN)
 
 			if str.Contains(str.ToUpper(textRU), filter) || str.Contains(str.ToUpper(textEN), filter) {
 				win.filterChildEndIter = iter
@@ -879,18 +879,18 @@ func (win *MainWindow) SaveTarget(outfile string) {
 	next := true
 	for next {
 		//Получаем данные полей из ListStore
-		line[id], err = gtkutils.GetFilterString(win.ListStore, iter, columnID)
+		line[id], err = gtkutils.GetListStoreValueString(win.ListStore, iter, columnID)
 		errorCheck(err)
 
 		// Если поле mode существует, заполняем
 		// иначе заполняем перевод
 		if mode != -1 {
-			line[mode], err = gtkutils.GetFilterString(win.ListStore, iter, columnMode)
+			line[mode], err = gtkutils.GetListStoreValueString(win.ListStore, iter, columnMode)
 			errorCheck(err)
 		} else {
 			// заполняем XML
 
-			line[text], err = gtkutils.GetFilterString(win.ListStore, iter, columnRU)
+			line[text], err = gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU)
 			errorCheck(err)
 			sum_all += 1
 
@@ -908,10 +908,10 @@ func (win *MainWindow) SaveTarget(outfile string) {
 		if win.Project.GetModuleName() == "potbs" {
 
 			if line[mode] == "ucdt" {
-				val, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
+				val, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU)
 				line[text] = str.ReplaceAll(val, "\t", " ")
 			} else {
-				line[text], _ = gtkutils.GetFilterString(win.ListStore, iter, columnRU)
+				line[text], _ = gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU)
 			}
 
 			//Подсчет % перевода
@@ -934,7 +934,7 @@ func (win *MainWindow) SaveTarget(outfile string) {
 		// Если есть перевод, а в оригинале такой строчки нет - пропускаем. (при влюченной опции clearNotOriginal)
 		if win.clearNotOriginal {
 			log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
-			strEN, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+			strEN, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
 			if len(line[text]) != 0 && len(strEN) == 0 {
 				next = win.ListStore.IterNext(iter)
 				continue
@@ -996,14 +996,14 @@ func saveXLSXfile(win *MainWindow, outfile string) {
 	iter, _ := win.Filter.GetIterFirst()
 	next := true
 	for next {
-		line.id, _ = gtkutils.GetFilterString(win.ListStore, iter, columnID)
-		line.mode, _ = gtkutils.GetFilterString(win.ListStore, iter, columnMode)
-		line.source, _ = gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+		line.id, _ = gtkutils.GetFilterValueString(win.Filter, iter, columnID)
+		line.mode, _ = gtkutils.GetFilterValueString(win.Filter, iter, columnMode)
+		line.source, _ = gtkutils.GetFilterValueString(win.Filter, iter, columnEN)
 		if line.mode == "ucdt" {
-			val, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
+			val, _ := gtkutils.GetFilterValueString(win.Filter, iter, columnRU)
 			line.target = str.ReplaceAll(val, "\t", " ")
 		} else {
-			line.target, _ = gtkutils.GetFilterString(win.ListStore, iter, columnRU)
+			line.target, _ = gtkutils.GetFilterValueString(win.Filter, iter, columnRU)
 		}
 
 		// Заполняем XLSX
@@ -1069,8 +1069,8 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 	next := true
 	for next {
 
-		line.id, _ = gtkutils.GetFilterString(win.ListStore, iter, columnID)
-		line.mode, _ = gtkutils.GetFilterString(win.ListStore, iter, columnMode)
+		line.id, _ = gtkutils.GetListStoreValueString(win.ListStore, iter, columnID)
+		line.mode, _ = gtkutils.GetListStoreValueString(win.ListStore, iter, columnMode)
 
 		//ucdn - пустая строка. нет смысла проверять далее
 		if line.mode == "ucdn" {
@@ -1078,12 +1078,12 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 			continue
 		}
 
-		line.source, _ = gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+		line.source, _ = gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
 
 		// Если импортируем только новые, проверяем перевод
 		if !importALL {
 			// Если перевода нет, добавляем
-			if text, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU); text == "" {
+			if text, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU); text == "" {
 				if val, ok := Data[line.id+line.mode]; ok {
 					// Т.к. id+mode не уникален
 					if line.source == val.source {
@@ -1111,17 +1111,20 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 
 // Заполнение окна с переводом при клике на строку
 func (win *MainWindow) lineSelected(dialog *DialogWindow) {
-	_, iter, _ := win.LineSelection.GetSelected()
+	_, iter, ok := win.LineSelection.GetSelected()
+	if !ok {
+		log.Println("[err]\tGetSelected error iter")
+	}
 
-	strEN, err := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
+	strEN, err := gtkutils.GetFilterValueString(win.Filter, iter, columnEN)
 	errorCheck(err)
 	dialog.BufferEn.SetText(strEN)
 
-	strRU, err := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
+	strRU, err := gtkutils.GetFilterValueString(win.Filter, iter, columnRU)
 	errorCheck(err)
 	dialog.BufferRu.SetText(strRU)
 
-	strID, err := gtkutils.GetFilterString(win.ListStore, iter, columnID)
+	strID, err := gtkutils.GetFilterValueString(win.Filter, iter, columnID)
 	errorCheck(err)
 	dialog.Label.SetText(strID)
 
@@ -1158,35 +1161,15 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 			continue
 		}
 
-		Id, _ := gtkutils.GetFilterString(win.ListStore, iter, columnID)
-		En, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
-		Ru, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
-
-		if win.Search_Full.GetActive() {
-			if str.ToUpper(Id) == searchtext || str.ToUpper(En) == searchtext || str.ToUpper(Ru) == searchtext {
-
-				patch, err := win.Filter.GetPath(iter)
-				errorCheck(err)
-
-				loop = 100
-
-				return patch
-			}
-
-		} else {
-			if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
-
-				patch, err := win.Filter.GetPath(iter)
-				errorCheck(err)
-
-				loop = 100
-
-				return patch
-			}
-
+		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
+			patch, err := win.Filter.GetPath(iter)
+			errorCheck(err)
+			loop = 100
+			return patch
 		}
+
 	}
-	//log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
+	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
 
@@ -1214,34 +1197,11 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 			continue
 		}
 
-		// Получаем значения полей
-		Id, _ := gtkutils.GetFilterString(win.ListStore, iter, columnID)
-		En, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
-		Ru, _ := gtkutils.GetFilterString(win.ListStore, iter, columnRU)
-
-		// Сравниваем значения полей с поисковой фразой
-		if win.Search_Full.GetActive() {
-			// Полное сравнение
-			if str.ToUpper(Id) == searchtext || str.ToUpper(En) == searchtext || str.ToUpper(Ru) == searchtext {
-
-				patch, err := win.Filter.GetPath(iter)
-				errorCheck(err)
-
-				loop = 100
-
-				return patch
-			}
-		} else {
-			// Сравнение по совпадению
-			if str.Contains(str.ToUpper(Id), searchtext) || str.Contains(str.ToUpper(En), searchtext) || str.Contains(str.ToUpper(Ru), searchtext) {
-
-				patch, err := win.Filter.GetPath(iter)
-				errorCheck(err)
-
-				loop = 100
-
-				return patch
-			}
+		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
+			patch, err := win.Filter.GetPath(iter)
+			errorCheck(err)
+			loop = 100
+			return patch
 		}
 
 	}

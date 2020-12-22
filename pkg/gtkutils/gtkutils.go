@@ -2,8 +2,11 @@ package gtkutils
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	str "strings"
 
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -342,7 +345,25 @@ func GetIterFromTextPathInListStore(ls *gtk.ListStore, path string) (*gtk.TreeIt
 	return iter, e
 }
 
-func GetFilterString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
+// Получаем строку из столбца по итератору
+func GetFilterValueString(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column int) (string, error) {
+
+	value, err := fl.GetValue(iter, column)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := value.GetString()
+
+	return out, err
+}
+
+// Получаем строку из столбца по итератору
+func GetListStoreValueString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
+
+	if !ls.IterIsValid(iter) {
+		fmt.Printf("%v нот валид", iter)
+	}
 	value, err := ls.GetValue(iter, column)
 	if err != nil {
 		return "", err
@@ -351,4 +372,32 @@ func GetFilterString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string,
 	out, err := value.GetString()
 
 	return out, err
+}
+
+// Проверяем запись на совпадение с текстом
+func FilterSearchTextfromIter(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, text string, fullsearch bool) bool {
+	text = str.ToUpper(text)
+
+	// Цикл по всем полям
+	for i := 0; i < fl.GetNColumns(); i++ {
+		// Если поле не текстовое, пропускаем
+		if fl.GetColumnType(i) != glib.TYPE_STRING {
+			continue
+		}
+		value, _ := GetFilterValueString(fl, iter, i)
+		//fmt.Printf("col:%d\t%s\n", i, value)
+		// Если полнотекстовый поиск
+		if fullsearch {
+			if str.ToUpper(value) == text {
+				return true
+			}
+		} else {
+			// Поиск по содержимому
+			if str.Contains(str.ToUpper(value), text) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
