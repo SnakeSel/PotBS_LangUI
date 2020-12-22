@@ -53,6 +53,8 @@ type intProject interface {
 	GetHeaderNbyName(string) int
 
 	GetModuleName() string
+
+	ValidateTranslate(string, string) error
 }
 
 // IDs to access the tree view columns by
@@ -871,16 +873,21 @@ func (win *MainWindow) SaveTarget(outfile string) {
 	sum_all = 0
 	sum_ru = 0
 
+	// Позиция поля в списке
 	id := win.Project.GetHeaderNbyName("id")
 	text := win.Project.GetHeaderNbyName("text")
 	mode := win.Project.GetHeaderNbyName("mode")
 
+	// массив строк, длина = кол-ву заголовков в плагине
 	line := make([]string, win.Project.GetHeaderLen())
+	// список из line
 	outdata := list.New()
 
+	// Цикл по всем записям
 	iter, _ := win.ListStore.GetIterFirst()
 	next := true
 	for next {
+		//Получаем данные полей из ListStore
 		valueId, err := win.ListStore.GetValue(iter, columnID)
 		errorCheck(err)
 		valueMode, err := win.ListStore.GetValue(iter, columnMode)
@@ -888,11 +895,19 @@ func (win *MainWindow) SaveTarget(outfile string) {
 		valueRu, err := win.ListStore.GetValue(iter, columnRU)
 		errorCheck(err)
 
-		//TODO разобрать и сделать универсально
-		if win.Project.GetHeaderLen() == 2 && mode == -1 {
+		line[id], err = valueId.GetString()
+		errorCheck(err)
+
+		// Если поле mode существует, заполняем
+		// иначе заполняем перевод
+		if mode != -1 {
+			line[mode], err = valueMode.GetString()
+			errorCheck(err)
+		} else {
 			// заполняем XML
-			line[id], _ = valueId.GetString()
-			line[text], _ = valueRu.GetString()
+
+			line[text], err = valueRu.GetString()
+			errorCheck(err)
 			sum_all += 1
 
 			if line[text] != "" {
@@ -902,10 +917,12 @@ func (win *MainWindow) SaveTarget(outfile string) {
 				next = win.ListStore.IterNext(iter)
 				continue
 			}
-		} else {
-			// Заполняем Potsb
-			line[id], _ = valueId.GetString()
-			line[mode], _ = valueMode.GetString()
+
+		}
+
+		// Заполняем Potsb
+		if win.Project.GetModuleName() == "potbs" {
+
 			if line[mode] == "ucdt" {
 				val, _ := valueRu.GetString()
 				line[text] = str.ReplaceAll(val, "\t", " ")
@@ -921,45 +938,46 @@ func (win *MainWindow) SaveTarget(outfile string) {
 				}
 			}
 
-			if win.clearNotOriginal {
-				// Если есть перевод, а в оригинале такой строчки нет - пропускаем
-				log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
-				valueEn, err := win.ListStore.GetValue(iter, columnEN)
-				errorCheck(err)
-				strEN, _ := valueEn.GetString()
-				if len(line[text]) != 0 && len(strEN) == 0 {
-					next = win.ListStore.IterNext(iter)
-					continue
-				}
-
-				// Если русского перевода нет, и это текстовая строка (ucdt), пропускаем. Может быть(ucgt)
-				//if line.Text == "" && line.Mode == "ucdt" {
-				if line[text] == "" && line[mode] != "ucdn" {
-					next = win.ListStore.IterNext(iter)
-					continue
-				}
-
-				// Проверка перевода на ошибки
-				err = potbs.ValidateTranslate(line[text])
-				if err != nil {
-					log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
-				}
-
+			// Если русского перевода нет, и это текстовая строка (ucdt), пропускаем. Может быть(ucgt)
+			//if line.Text == "" && line.Mode == "ucdt" {
+			if line[text] == "" && line[mode] != "ucdn" {
+				next = win.ListStore.IterNext(iter)
+				continue
 			}
 
-			// Проверка на Source=Target
-			// Отключена т.к. много ложных. TODO
-			// valueSource, err := win.ListStore.GetValue(iter, columnEN)
-			// errorCheck(err)
-			// sourceText, _ := valueSource.GetString()
-			// if line.Mode == "ucdt" && line.Text == sourceText && line.Text != "String ID Not Found" && line.Text != ". . ." && line.Text[0:1] != "/" {
-			// 	log.Printf("[warn]\tSource=Target ID: %s\n", line.Id)
-			// }
 		}
 
+		// Если есть перевод, а в оригинале такой строчки нет - пропускаем. (при влюченной опции clearNotOriginal)
+		if win.clearNotOriginal {
+			log.Println("[INFO]\tНе сохраняем строку перевода при отсутствии записи в оригинале")
+			valueEn, err := win.ListStore.GetValue(iter, columnEN)
+			errorCheck(err)
+			strEN, _ := valueEn.GetString()
+			if len(line[text]) != 0 && len(strEN) == 0 {
+				next = win.ListStore.IterNext(iter)
+				continue
+			}
+		}
+
+		// Проверка перевода на ошибки
+
+		// Проверка на Source=Target Отключена т.к. много ложных. TODO
+		// valueSource, err := win.ListStore.GetValue(iter, columnEN)
+		// errorCheck(err)
+		// sourceText, _ := valueSource.GetString()
+		sourceText := ""
+
+		err = win.Project.ValidateTranslate(sourceText, line[text])
+		if err != nil {
+			log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
+		}
+
+		// Добавляем Line в список
 		outdata.PushBack(line)
+		// переинициализируем Line
 		line = make([]string, win.Project.GetHeaderLen())
 
+		// к следующей записи
 		next = win.ListStore.IterNext(iter)
 
 	}

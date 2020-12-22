@@ -341,3 +341,14 @@ func GetIterFromTextPathInListStore(ls *gtk.ListStore, path string) (*gtk.TreeIt
 	iter, e := ls.GetIter(treePath)
 	return iter, e
 }
+
+func GetFilterString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
+	value, err := ls.GetValue(iter, column)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := value.GetString()
+
+	return out, err
+}

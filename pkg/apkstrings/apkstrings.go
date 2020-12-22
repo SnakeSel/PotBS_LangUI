@@ -167,3 +167,7 @@ func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
 	return nil
 
 }
+
+func (t *Translate) ValidateTranslate(sourseText, targetText string) error {
+	return nil
+}

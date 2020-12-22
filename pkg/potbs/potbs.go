@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	s "strings"
+	str "strings"
 
 	"container/list"
 	"io"
@@ -92,12 +92,12 @@ func scanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 
 // Поиск n-го вхождения substr в str
 // Возвращает номер позиции или -1, если такого вхождения нет.
-func indexN(str, substr string, n int) int {
+func indexN(strg, substr string, n int) int {
 
 	ind := 0
 	pos := 0
 	for i := 0; i < n; i++ {
-		ind = s.Index(str[pos:], substr)
+		ind = str.Index(strg[pos:], substr)
 		if ind == -1 {
 			return ind
 		}
@@ -110,13 +110,13 @@ func indexN(str, substr string, n int) int {
 
 func checkModeLine(line string) string {
 	switch {
-	case s.Contains(line, "ucdt"):
+	case str.Contains(line, "ucdt"):
 		return "ucdt"
-	case s.Contains(line, "ucdn"):
+	case str.Contains(line, "ucdn"):
 		return "ucdn"
-	case s.Contains(line, "mcdt"):
+	case str.Contains(line, "mcdt"):
 		return "mcdt"
-	case s.Contains(line, "mcdn"):
+	case str.Contains(line, "mcdn"):
 		return "mcdn"
 	default:
 		return ""
@@ -206,11 +206,11 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 			// Первая строка сожержит заголовок.
 			// Пока просто отбрасываем 6 байт
 			lineall := scanner.Text()[6:]
-			splitline = s.Split(lineall, "\t")
+			splitline = str.Split(lineall, "\t")
 			lineLen = len(lineall)
 			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
 		} else {
-			splitline = s.SplitN(scanner.Text(), "\t", 3)
+			splitline = str.SplitN(scanner.Text(), "\t", 3)
 			lineLen = len(scanner.Bytes())
 			//lineLen = utf8.RuneCount(scanner.Bytes())
 			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
@@ -227,10 +227,10 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 			chmode := checkModeLine(scanner.Text())
 			if chmode != "" {
 				t.log.Printf("Длинна строки %d, но содержит: %s", len(splitline), chmode)
-				tmpsplitline := s.SplitN(scanner.Text(), chmode, 2)
+				tmpsplitline := str.SplitN(scanner.Text(), chmode, 2)
 				splitline2 := make([]string, 3)
 				//t.log.Println(tmpsplitline)
-				splitline2[0] = s.TrimSpace(tmpsplitline[0])
+				splitline2[0] = str.TrimSpace(tmpsplitline[0])
 				splitline2[1] = chmode
 				splitline2[2] = tmpsplitline[1]
 				splitline = splitline2
@@ -337,7 +337,7 @@ func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
 		switch line[mode] {
 		case "mcdt":
 			// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
-			ind := s.Index(line[text], "\t")
+			ind := str.Index(line[text], "\t")
 			// -1 - не найдено
 			if ind == -1 {
 				mcdtlen = linelen
@@ -361,7 +361,7 @@ func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
 
 	//Создаем dir файл
 	patch, file := filepath.Split(filepach)
-	filedir, err := os.Create(patch + s.TrimSuffix(file, filepath.Ext(file)) + ".dir")
+	filedir, err := os.Create(patch + str.TrimSuffix(file, filepath.Ext(file)) + ".dir")
 	if err != nil {
 		t.log.Println("Error save DIR file")
 		return err
@@ -393,11 +393,11 @@ func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
 // 	return false
 // }
 
-func ValidateTranslate(translate string) error {
+func (t *Translate) ValidateTranslate(sourceText, targetText string) error {
 
 	//Проверяем перевод макросов
 	re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
-	macros := re_macros.FindAllString(translate, -1)
+	macros := re_macros.FindAllString(targetText, -1)
 	if len(macros) != 0 {
 		for _, str := range macros {
 
@@ -413,15 +413,35 @@ func ValidateTranslate(translate string) error {
 	}
 
 	//Проверяем наличие переносов строки
-	// if s.Contains(translate, "\n") {
+	// if s.Contains(targetText, "\n") {
 	// 	return fmt.Errorf("Замените перенос строки на символ: \\n")
 	// }
 
+	// Проверка на Source=Target
+	if sourceText != "" && sourceText == targetText &&
+		targetText != "String ID Not Found" && targetText != ". . ." && targetText[0:1] != "/" {
+		noMacSource := removeMacros(sourceText)
+		noMacTarget := removeMacros(targetText)
+		if len(noMacTarget) > 2 && noMacSource == noMacTarget {
+			return fmt.Errorf("[warn]\tSource=Target")
+		}
+	}
+
 	return nil
+}
+func removeMacros(text string) string {
+	openIndx := str.Index(text, "[!")
+	//Пока мы находим в тексте начало макроса
+	for openIndx != -1 {
+		lastIndx := str.Index(text, "!]")
+		text = text[:openIndx] + text[lastIndx+2:]
+		openIndx = str.Index(text, "[!")
+	}
+	return text
 }
 
 func langName(lang string) string {
-	switch s.ToUpper(lang) {
+	switch str.ToUpper(lang) {
 	case "RU":
 		return "ru_RU"
 	case "EN":
