@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	version     = "20201222"
+	version     = "20201225"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -630,6 +630,7 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) {
 	}
 }
 
+// Применение выбранного языка
 func (win *MainWindow) printLocale() {
 	win.Window.SetTitle(win.locale.Sprintf("Title"))
 	win.ToolBtnSave.SetLabel(win.locale.Sprintf("Save"))
@@ -639,18 +640,20 @@ func (win *MainWindow) printLocale() {
 	win.ToolBtnTmpl.SetLabel(win.locale.Sprintf("Template"))
 	activeFilter := win.combo_filter.GetActive()
 	win.combo_filter.RemoveAll()
-	win.combo_filter.InsertText(filterALL, win.locale.Sprintf("FilterALL"))
-	win.combo_filter.InsertText(filterNotTranslate, win.locale.Sprintf("FilterNotTranslate"))
-	win.combo_filter.InsertText(filterNotOriginal, win.locale.Sprintf("FilterNotOriginal"))
-	win.combo_filter.InsertText(filterUserFilter, win.locale.Sprintf("FilterUserFilter"))
+	win.combo_filter.InsertText(filterALL, win.locale.Sprintf("ALL"))
+	win.combo_filter.InsertText(filterNotTranslate, win.locale.Sprintf("Not Translated"))
+	win.combo_filter.InsertText(filterNotOriginal, win.locale.Sprintf("Not Original"))
+	win.combo_filter.InsertText(filterUserFilter, win.locale.Sprintf("User Filter"))
 	win.combo_filter.SetActive(activeFilter)
 	win.userFilter.SetPlaceholderText(win.locale.Sprintf("UserFilterPlaceholder"))
 	win.Search.SetPlaceholderText(win.locale.Sprintf("SearchPlaceholder"))
 	win.Search_Full.SetLabel(win.locale.Sprintf("SearchFull"))
 
 }
+
+//Сохранение настроек
 func (win *MainWindow) saveCfg() {
-	//Сохранение настроек
+
 	w, h := win.Window.GetSize()
 	cfg.Section("Main").Key("width").SetValue(strconv.Itoa(w))
 	cfg.Section("Main").Key("height").SetValue(strconv.Itoa(h))
@@ -665,8 +668,8 @@ func (win *MainWindow) saveCfg() {
 }
 
 func (win *MainWindow) ToolBtnSave_clicked() {
-	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, "Внимание!")
-	dialog.FormatSecondaryText("Are you sure you want to overwrite:\nВы уверены, что хотите перезаписать:\n\n" + win.langFileName + " ?")
+	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, win.locale.Sprintf("Warning")+"!")
+	dialog.FormatSecondaryText(win.locale.Sprintf("Are you sure you want to overwrite") + ":\n" + win.langFileName + " ?")
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
@@ -677,7 +680,7 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 }
 
 func (win *MainWindow) ToolBtnSaveAs_clicked() {
-	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
+	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select a file to save"), win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(win.langFilePath)
 	native.SetCurrentName(win.Project.GetTargetLang() + "_data_mod" + win.langFileExt)
@@ -692,7 +695,7 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 }
 
 func (win *MainWindow) ToolBtnExportXLSX_clicked() {
-	native, err := gtk.FileChooserNativeDialogNew("Select a file to save\nВыберите файл для сохранения", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
+	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select a file to save"), win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
 	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
 	native.SetCurrentName(win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang() + ".xlsx")
@@ -717,7 +720,7 @@ func (win *MainWindow) ToolBtnImportXLSX_clicked() {
 	filter_all.AddPattern("*")
 	filter_all.SetName("Any files")
 
-	native, err := gtk.FileChooserNativeDialogNew("Select the XLSX file to import\nВыберите XLSX файл для импорта", win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
+	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select the XLSX file to import"), win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
 	errorCheck(err)
 
 	native.SetCurrentFolder(win.langFilePath)
@@ -737,15 +740,15 @@ func (win *MainWindow) ToolBtnImportXLSX_clicked() {
 	dlg, _ := gtk.DialogNew()
 	//dlg.SetParentWindow(win.Window)
 	dlg.SetTitle("Import " + filepath.Base(xlsfile))
-	dlg.AddButton("Не перевед. (untrans)", gtk.RESPONSE_ACCEPT)
-	dlg.AddButton("Все (All)", gtk.RESPONSE_OK)
-	dlg.AddButton("Отмена (Cancel)", gtk.RESPONSE_CANCEL)
+	dlg.AddButton(win.locale.Sprintf("Not translated"), gtk.RESPONSE_ACCEPT)
+	dlg.AddButton(win.locale.Sprintf("ALL"), gtk.RESPONSE_OK)
+	dlg.AddButton(win.locale.Sprintf("Cancel"), gtk.RESPONSE_CANCEL)
 	dlg.SetPosition(gtk.WIN_POS_CENTER)
 
 	dlgBox, _ := dlg.GetContentArea()
 	dlgBox.SetSpacing(6)
 
-	lbl, _ := gtk.LabelNew("Импорт из первого листа в книге!\nЗаменить только не переведенные строки или все?\n\nImport from the first sheet in a book!\nChange only untranslated strings or all?")
+	lbl, _ := gtk.LabelNew(win.locale.Sprintf("Import from the first sheet in a book") + "!\n" + win.locale.Sprintf("Change only untranslated strings or all") + "?")
 	lbl.SetMarginStart(6)
 	lbl.SetMarginEnd(6)
 	//lbl.SetLineWrap(true)
