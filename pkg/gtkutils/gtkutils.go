@@ -2,7 +2,6 @@ package gtkutils
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	str "strings"
 
@@ -362,8 +361,9 @@ func GetFilterValueString(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column in
 func GetListStoreValueString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
 
 	if !ls.IterIsValid(iter) {
-		fmt.Printf("%v нот валид", iter)
+		log.Printf("%v нот валид", iter)
 	}
+
 	value, err := ls.GetValue(iter, column)
 	if err != nil {
 		return "", err

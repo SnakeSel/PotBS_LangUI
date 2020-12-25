@@ -7,6 +7,7 @@ import (
 
 	"github.com/snakesel/potbs_langui/pkg/apkstrings"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
+	"github.com/snakesel/potbs_langui/pkg/locales"
 	"github.com/snakesel/potbs_langui/pkg/potbs"
 	"github.com/snakesel/potbs_langui/pkg/tmpl"
 
@@ -29,11 +30,12 @@ import (
 )
 
 const (
-	version   = "20201222"
-	appId     = "snakesel.potbs-langui"
-	MainGlade = "data/main.glade"
-	tmplPatch = "data/tmpl"
-	cfgFile   = "data/cfg.ini"
+	version     = "20201222"
+	appId       = "snakesel.potbs-langui"
+	MainGlade   = "data/main.glade"
+	tmplPatch   = "data/tmpl"
+	cfgFile     = "data/cfg.ini"
+	localesFile = "data/locales"
 )
 
 var TmplList []tmpl.TTmpl
@@ -118,6 +120,8 @@ type MainWindow struct {
 	langFilePath string // Хранит путь к файлу с переводом
 	langFileName string // Хранит только имя файла перевода
 	langFileExt  string
+
+	locale *locales.Printer
 }
 
 type DialogWindow struct {
@@ -271,6 +275,12 @@ func main() {
 
 		// Путь к файлам
 		win.langFilePath = cfg.Section("Main").Key("Patch").MustString("")
+
+		// #########################################
+		//Язык программы
+
+		win.locale, _ = locales.New(localesFile, cfg.Section("Main").Key("Language").MustString("en-US"))
+		win.printLocale()
 
 		// #########################################
 
@@ -497,7 +507,8 @@ func (win *MainWindow) fileChooserFullPath(title string) string {
 func (win *MainWindow) getFileNames() (sourceName, targetName, extName string) {
 
 	// open source file
-	sourceName = win.fileChooserFullPath("Выберите исходный файл для перевода (Select the source file to translate).")
+
+	sourceName = win.fileChooserFullPath(win.locale.Sprintf("SelectSourceFile"))
 	win.langFilePath = filepath.Dir(sourceName)
 	extName = filepath.Ext(sourceName)
 	win.langFileExt = extName
@@ -505,7 +516,7 @@ func (win *MainWindow) getFileNames() (sourceName, targetName, extName string) {
 	//log.Println(extName)
 
 	// open target file
-	targetName = win.fileChooserFullPath("Выберите файл перевода (Select the target file to translate)")
+	targetName = win.fileChooserFullPath(win.locale.Sprintf("SelectTargetFile"))
 	win.langFilePath = filepath.Dir(targetName)
 	win.langFileName = filepath.Base(targetName)
 
@@ -619,6 +630,25 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) {
 	}
 }
 
+func (win *MainWindow) printLocale() {
+	win.Window.SetTitle(win.locale.Sprintf("Title"))
+	win.ToolBtnSave.SetLabel(win.locale.Sprintf("Save"))
+	win.ToolBtnSaveAs.SetLabel(win.locale.Sprintf("SaveAs"))
+	win.ToolBtnExportXLSX.SetLabel(win.locale.Sprintf("ExportXLSX"))
+	win.ToolBtnImportXLSX.SetLabel(win.locale.Sprintf("ImportXLSX"))
+	win.ToolBtnTmpl.SetLabel(win.locale.Sprintf("Template"))
+	activeFilter := win.combo_filter.GetActive()
+	win.combo_filter.RemoveAll()
+	win.combo_filter.InsertText(filterALL, win.locale.Sprintf("FilterALL"))
+	win.combo_filter.InsertText(filterNotTranslate, win.locale.Sprintf("FilterNotTranslate"))
+	win.combo_filter.InsertText(filterNotOriginal, win.locale.Sprintf("FilterNotOriginal"))
+	win.combo_filter.InsertText(filterUserFilter, win.locale.Sprintf("FilterUserFilter"))
+	win.combo_filter.SetActive(activeFilter)
+	win.userFilter.SetPlaceholderText(win.locale.Sprintf("UserFilterPlaceholder"))
+	win.Search.SetPlaceholderText(win.locale.Sprintf("SearchPlaceholder"))
+	win.Search_Full.SetLabel(win.locale.Sprintf("SearchFull"))
+
+}
 func (win *MainWindow) saveCfg() {
 	//Сохранение настроек
 	w, h := win.Window.GetSize()
@@ -830,7 +860,7 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 	wintmpl.BtnSave.Connect("clicked", func() {
 		TmplList = wintmpl.GetTmpls()
 
-		// Сортируем от ольшего совпадения к меньшему
+		// Сортируем от большего совпадения к меньшему
 		sort.SliceStable(TmplList, func(i, j int) bool {
 			before := len(TmplList[i].En)
 			next := len(TmplList[j].En)
@@ -1161,6 +1191,7 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 			continue
 		}
 
+		//Ищем совпадения в текущей записи
 		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
 			patch, err := win.Filter.GetPath(iter)
 			errorCheck(err)
@@ -1197,6 +1228,7 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 			continue
 		}
 
+		//Ищем совпадения в текущей записи
 		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
 			patch, err := win.Filter.GetPath(iter)
 			errorCheck(err)

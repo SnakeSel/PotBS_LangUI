@@ -27,7 +27,7 @@ $ cd $GOPATH/src/github.com/snakesel/potbs_langui/
 #### Build:
 - Windows:
 ```sh
-go build -ldflags -H=windowsgui
+go build -ldflags "-H=windowsgui -s -w"
 ```
 - Linux:
 ```sh
