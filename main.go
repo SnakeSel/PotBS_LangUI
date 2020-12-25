@@ -10,8 +10,7 @@ import (
 	"github.com/snakesel/potbs_langui/pkg/locales"
 	"github.com/snakesel/potbs_langui/pkg/potbs"
 	"github.com/snakesel/potbs_langui/pkg/tmpl"
-
-	tr "github.com/bas24/googletranslatefree"
+	"github.com/snakesel/potbs_langui/pkg/ui"
 
 	"container/list"
 	"path/filepath"
@@ -19,7 +18,6 @@ import (
 	"strconv"
 	str "strings"
 
-	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 
@@ -124,25 +122,6 @@ type MainWindow struct {
 	locale *locales.Printer
 }
 
-type DialogWindow struct {
-	Window *gtk.Dialog
-
-	TextEn *gtk.TextView
-	TextRu *gtk.TextView
-
-	BufferEn *gtk.TextBuffer
-	BufferRu *gtk.TextBuffer
-
-	BtnCancel  *gtk.Button
-	BtnOk      *gtk.Button
-	BtnTmplRun *gtk.Button
-	BtnGooglTr *gtk.Button
-
-	Label      *gtk.Label
-	sourceLang string // исходный язык для перевода
-	targetLang string // на какой будем переводить
-}
-
 // Append a row to the list store for the tree view
 func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 	// Get an iterator for a new row at the end of the list store
@@ -195,7 +174,7 @@ func main() {
 		errorCheck(err, "Error: No load main.glade")
 
 		win := mainWindowCreate(b)
-		dialog := dialogWindowCreate(b)
+		dialog := ui.DialogWindowNew()
 
 		// Map the handlers to callback functions, and connect the signals
 		// to the Builder.
@@ -215,7 +194,12 @@ func main() {
 
 		// Сигналы MainWindow
 		win.Window.Connect("destroy", func() {
-			dialog.saveCfg()
+			w, h := dialog.Window.GetSize()
+			cfg.Section("Translate").Key("width").SetValue(strconv.Itoa(w))
+			cfg.Section("Translate").Key("height").SetValue(strconv.Itoa(h))
+
+			// Позиция всегда по центру родителя. Поэтому ее не сохраняем
+			cfg.SaveTo(cfgFile)
 			application.Quit()
 		})
 
@@ -265,6 +249,9 @@ func main() {
 			dialog.Window.Hide()
 		})
 
+		dialog.BtnTmplRun.Connect("clicked", dialog.BtnTmplRun_clicked)
+		dialog.BtnGooglTr.Connect("clicked", dialog.BtnGoogleTr_clicked)
+
 		// ### применяем настроки
 		win.Window.Resize(cfg.Section("Main").Key("width").MustInt(600), cfg.Section("Main").Key("height").MustInt(600))
 		win.Window.Move(cfg.Section("Main").Key("posX").MustInt(0), cfg.Section("Main").Key("posY").MustInt(0))
@@ -281,6 +268,7 @@ func main() {
 
 		win.locale, _ = locales.New(localesFile, cfg.Section("Main").Key("Language").MustString("en-US"))
 		win.printLocale()
+		dialog.PrintLocale(win.locale)
 
 		// #########################################
 
@@ -345,11 +333,13 @@ func main() {
 		win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
 		win.TreeView.GetColumn(columnRU).SetTitle(win.Project.GetTargetLang())
 
-		dialog.sourceLang = win.Project.GetSourceLang()
-		dialog.targetLang = win.Project.GetTargetLang()
+		dialog.SourceLang = win.Project.GetSourceLang()
+		dialog.TargetLang = win.Project.GetTargetLang()
 
 		// Загружаем шаблоны
 		TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
+
+		dialog.TmplList = &TmplList
 
 		win.Filter.SetVisibleFunc(win.funcFilter)
 		win.Filter.Refilter()
@@ -404,52 +394,6 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.BtnDown = gtkutils.GetButton(b, "btn_down")
 
 	return win
-}
-
-// Окно диалога
-func dialogWindowCreate(b *gtk.Builder) *DialogWindow {
-
-	dialog := new(DialogWindow)
-
-	obj, err := b.GetObject("dialog_translite")
-	errorCheck(err)
-	dialog.Window = obj.(*gtk.Dialog)
-
-	// Перехват сигнала нажатия клавишь
-	dialog.Window.Connect("key-press-event", dialog.keyPress, nil)
-
-	//Убираем кнопку "Закрыть(X)"
-	dialog.Window.SetDeletable(false)
-
-	// Получаем остальные объекты dialog_translite
-	dialog.TextEn = gtkutils.GetTextView(b, "dialog_text_en")
-	dialog.TextRu = gtkutils.GetTextView(b, "dialog_text_ru")
-
-	dialog.BufferEn = gtkutils.GetTextBuffer(b, "dialog_buffer_en")
-	dialog.BufferRu = gtkutils.GetTextBuffer(b, "dialog_buffer_ru")
-
-	dialog.BtnCancel = gtkutils.GetButton(b, "dialog_btn_cancel")
-	dialog.BtnOk = gtkutils.GetButton(b, "dialog_btn_ok")
-	dialog.BtnTmplRun = gtkutils.GetButton(b, "dialog_btn_tmpl_run")
-	dialog.BtnGooglTr = gtkutils.GetButton(b, "dialog_btn_googletr")
-
-	dialog.Label = gtkutils.GetLabel(b, "dialog_label")
-
-	return dialog
-}
-
-// Обработка нажатия клавишь в окне диалога
-func (dialog *DialogWindow) keyPress(dial *gtk.Dialog, event *gdk.Event) bool {
-	key := gdk.EventKeyNewFromEvent(event)
-
-	if key.KeyVal() == gdk.KEY_Escape {
-		dialog.Window.Hide()
-		// true означает, что сигнал обработан
-		// и далее его не надо передавать на стандартный обработчик
-		return true
-
-	}
-	return false
 }
 
 // Запускает диалог выбора файла перевода
@@ -1143,7 +1087,7 @@ func loadXLSXfile(win *MainWindow, xlsxfile string, importALL bool) {
 }
 
 // Заполнение окна с переводом при клике на строку
-func (win *MainWindow) lineSelected(dialog *DialogWindow) {
+func (win *MainWindow) lineSelected(dialog *ui.DialogWindow) {
 	_, iter, ok := win.LineSelection.GetSelected()
 	if !ok {
 		log.Println("[err]\tGetSelected error iter")
@@ -1198,7 +1142,7 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
 			patch, err := win.Filter.GetPath(iter)
 			errorCheck(err)
-			loop = 100
+			loop = 5
 			return patch
 		}
 
@@ -1235,61 +1179,13 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
 			patch, err := win.Filter.GetPath(iter)
 			errorCheck(err)
-			loop = 100
+			loop = 5
 			return patch
 		}
 
 	}
 	//log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
-}
-
-// Сохранение настроек
-func (dialog *DialogWindow) saveCfg() {
-	w, h := dialog.Window.GetSize()
-	cfg.Section("Translate").Key("width").SetValue(strconv.Itoa(w))
-	cfg.Section("Translate").Key("height").SetValue(strconv.Itoa(h))
-
-	// Позиция всегда по центру родителя. Поэтому ее не сохраняем
-	cfg.SaveTo(cfgFile)
-
-}
-
-// Заменяем текст оригинала по шаблонам
-func (dialog *DialogWindow) BtnTmplRun_clicked() {
-
-	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
-	errorCheck(err)
-
-	for _, line := range TmplList {
-		text = str.ReplaceAll(text, line.En, line.Ru)
-	}
-
-	dialog.BufferRu.SetText(text)
-
-}
-
-// Переводим текст через Google Translate
-func (dialog *DialogWindow) BtnGoogleTr_clicked() {
-
-	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
-	errorCheck(err)
-
-	//Если нечего переводить, выходим
-	if text == "" {
-		return
-	}
-
-	// Заменяем текст оригинала по шаблонам. Для более точного перевода
-	for _, line := range TmplList {
-		text = str.ReplaceAll(text, line.En, line.Ru)
-	}
-
-	// отправляем в гугл
-	res, err := tr.Translate(text, dialog.sourceLang, dialog.targetLang)
-	if err == nil {
-		dialog.BufferRu.SetText(res)
-	}
 }
 
 func errorCheck(e error, text_opt ...string) {

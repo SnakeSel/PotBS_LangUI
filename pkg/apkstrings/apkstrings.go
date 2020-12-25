@@ -137,13 +137,13 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	return Data, nil
 }
 
-func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
+func (t *Translate) SaveFile(filepach string, datas *list.List) error {
 	v := &Resources{}
 
 	id := t.GetHeaderNbyName("id")
 	text := t.GetHeaderNbyName("text")
 
-	for e := Datas.Front(); e != nil; e = e.Next() {
+	for e := datas.Front(); e != nil; e = e.Next() {
 		line := e.Value.([]string)
 		v.Strings = append(v.Strings, _string{Name: line[id], Text: line[text]})
 	}

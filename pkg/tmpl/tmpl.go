@@ -178,13 +178,13 @@ func LoadTmplFromFile(patch string) []TTmpl {
 	return Tmpls
 }
 
-func SaveTmplToFile(Tmpls []TTmpl, patch string) {
+func SaveTmplToFile(tmpls []TTmpl, patch string) {
 
 	file, err := os.Create(patch)
 	errorCheck(err, "Unable to create file: "+patch)
 	defer file.Close()
 
-	for _, line := range Tmpls {
+	for _, line := range tmpls {
 		file.WriteString(fmt.Sprintf("%s%s%s\n", line.En, separator, line.Ru))
 	}
 }
@@ -202,9 +202,9 @@ func addRow(listStore *gtk.ListStore, en, ru string) {
 
 }
 
-func (win *TmplWindow) Run(Tmpls []TTmpl) {
+func (win *TmplWindow) Run(tmpls []TTmpl) {
 	//Выводим в таблицу
-	for _, line := range Tmpls {
+	for _, line := range tmpls {
 		addRow(win.ListStore, line.En, line.Ru)
 	}
 

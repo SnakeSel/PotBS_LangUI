@@ -263,12 +263,13 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 		}
 
 		// Проверяем кол-во разделенных элементов. Должно быть 3
-		if len(splitline) >= 3 {
+
+		switch {
+		case len(splitline) >= 3:
 			t.log.Println("mode 1 (len3)")
 			line[mode] = splitline[1]
-			line[text] = line[text] + splitline[2]
-
-		} else if len(splitline) == 2 {
+			line[text] += splitline[2]
+		case len(splitline) == 2:
 			// 2 быват при пустой строке (ucdn)
 			t.log.Println("mode 2 (len2)")
 			if len(splitline[1]) == 4 {
@@ -277,7 +278,7 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 			} else {
 				line[text] += "\n" + scanner.Text()
 			}
-		} else {
+		default:
 			// При строке с \r\n в середине
 			t.log.Println("mode 3")
 			//line.Mode = "none"
@@ -292,7 +293,7 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	return Data, nil
 }
 
-func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
+func (t *Translate) SaveFile(filepach string, datas *list.List) error {
 
 	id := t.GetHeaderNbyName("id")
 	text := t.GetHeaderNbyName("text")
@@ -312,7 +313,7 @@ func (t *Translate) SaveFile(filepach string, Datas *list.List) error {
 
 	// Iterate through list and print its contents.
 	first := true
-	for e := Datas.Front(); e != nil; e = e.Next() {
+	for e := datas.Front(); e != nil; e = e.Next() {
 		line := e.Value.([]string)
 		t.log.Println(line)
 		if first {
