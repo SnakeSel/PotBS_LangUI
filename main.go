@@ -328,7 +328,11 @@ func main() {
 		}
 
 		// Загружаем файлы перевода и выводим в таблицу
-		win.loadListStore(sourceFile, targetFile)
+		err = win.loadListStore(sourceFile, targetFile)
+		if err != nil {
+			log.Fatalln("[ERR]\tОшибка загрузки файлов")
+			os.Exit(1)
+		}
 
 		win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
 		win.TreeView.GetColumn(columnRU).SetTitle(win.Project.GetTargetLang())
@@ -406,14 +410,14 @@ func (win *MainWindow) fileChooserFullPath(title string) string {
 
 	switch win.langFileExt {
 	case ".xml":
-		filter_dat.AddPattern("*.xml")
-		filter_dat.SetName(".xml")
+		filter_dat.AddPattern("strings.xml")
+		filter_dat.SetName("strings.xml")
 	case ".dat":
 		filter_dat.AddPattern("*.dat")
 		filter_dat.SetName(".dat")
 	default:
 		filter_dat.AddPattern("*.dat")
-		filter_dat.AddPattern("*.xml")
+		filter_dat.AddPattern("strings.xml")
 		filter_dat.SetName("All Supported")
 	}
 
@@ -467,7 +471,7 @@ func (win *MainWindow) getFileNames() (sourceName, targetName, extName string) {
 	return sourceName, targetName, extName
 }
 
-func (win *MainWindow) loadListStore(sourceName, targetName string) {
+func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 
 	id := win.Project.GetHeaderNbyName("id")
 	mode := win.Project.GetHeaderNbyName("mode")
@@ -477,7 +481,9 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) {
 	DataALL := make(map[string]Tlang)
 
 	Data, err := win.Project.LoadFile(sourceName)
-	errorCheck(err)
+	if err != nil {
+		return err
+	}
 
 	for e := Data.Front(); e != nil; e = e.Next() {
 		line := e.Value.([]string)
@@ -506,7 +512,9 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) {
 	// Load target file
 
 	Data, err = win.Project.LoadFile(targetName)
-	errorCheck(err)
+	if err != nil {
+		return err
+	}
 
 	tmpmap := make(map[string]bool)
 	for e := Data.Front(); e != nil; e = e.Next() {
@@ -572,6 +580,8 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) {
 	if mode == -1 {
 		win.TreeView.GetColumn(columnMode).SetVisible(false)
 	}
+
+	return nil
 }
 
 // Применение выбранного языка

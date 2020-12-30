@@ -8,6 +8,7 @@ import (
 
 const (
 	testdatfile = "test.dat"
+	testFailDat = "test_fail.dat"
 	datlen      = 15 //кол-во записей в тестовом файле
 
 	testoutdat = "testout.dat"
@@ -23,6 +24,16 @@ var checkLen = map[int]int{
 	4:  215,
 	6:  190,
 	12: 429,
+}
+
+func TestErroLoad(t *testing.T) {
+	prog := New(Config{
+		Debug: os.Stdout,
+	})
+	_, err := prog.LoadFile(testFailDat)
+	if err == nil {
+		t.Error("[LoadErrDat] failed: Failed dat file load success.")
+	}
 }
 
 func TestAll(t *testing.T) {

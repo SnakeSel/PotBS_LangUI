@@ -187,6 +187,24 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	}
 	defer file.Close()
 
+	// Проверка на соответствие файла
+	firstbit := make([]byte, len(BeginByte))
+
+	_, err = file.Read(firstbit)
+	if err != nil {
+		return nil, err
+	}
+	// t.log.Println(string(BeginByte))
+	// t.log.Println(BeginByte)
+
+	// t.log.Println(string(firstbit))
+	// t.log.Println(firstbit)
+
+	if bytes.Compare(firstbit, BeginByte) != 0 {
+		return nil, fmt.Errorf("Error Load file %s. The file does not start with %s", filepach, string(BeginByte))
+	}
+
+	//Сканируем файл
 	scanner := bufio.NewScanner(file)
 
 	//var line []string
@@ -202,19 +220,21 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	for scanner.Scan() {
 
 		// Подсчитваем длину и разбиваем строку по "\t"
-		if first {
-			// Первая строка сожержит заголовок.
-			// Пока просто отбрасываем 6 байт
-			lineall := scanner.Text()[6:]
-			splitline = str.Split(lineall, "\t")
-			lineLen = len(lineall)
-			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
-		} else {
-			splitline = str.SplitN(scanner.Text(), "\t", 3)
-			lineLen = len(scanner.Bytes())
-			//lineLen = utf8.RuneCount(scanner.Bytes())
-			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
-		}
+
+		// Проверка не искользуется т.к. заголовок уже считали. Потом убрать
+		// if first {
+		// 	// Первая строка сожержит заголовок.
+		// 	// Пока просто отбрасываем 6 байт
+		// 	lineall := scanner.Text()[6:]
+		// 	splitline = str.Split(lineall, "\t")
+		// 	lineLen = len(lineall)
+		// 	t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
+		// } else {
+		splitline = str.SplitN(scanner.Text(), "\t", 3)
+		lineLen = len(scanner.Bytes())
+		//lineLen = utf8.RuneCount(scanner.Bytes())
+		t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
+		// }
 
 		// костыль пустой строки
 		if lineLen == 0 {
