@@ -192,6 +192,7 @@ func main() {
 			"main_btn_export_xlsx_clicked": win.ToolBtnExportXLSX_clicked,
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
+			"main_btn_Settings_clicked":    win.ToolBtnSettings_clicked,
 			"main_combo_filter_change":     win.ComboFilter_clicked,
 			"userfilter_activate":          win.ComboFilter_clicked,
 			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
@@ -934,6 +935,48 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	//wintmpl.Window.SetParent(win.Window)
 	wintmpl.Run(TmplList)
+}
+
+func (win *MainWindow) ToolBtnSettings_clicked() {
+
+	winSetings := ui.SettingsWindowNew()
+	// Применяем локализацию
+	winSetings.SetLocale(win.locale)
+
+	winSetings.SetAllLocaleName(locales.GetAllLocaleName(localesFile))
+
+	winSetings.LoadCfg(cfg)
+
+	oldlocale := cfg.Section("Main").Key("Language").MustString("en-US")
+
+	// Сигналы
+	// Получаем значения при ОК
+	winSetings.BtnOk.Connect("clicked", func() {
+		cfg.Section("Main").Key("Startup").SetValue(strconv.Itoa(winSetings.ComboStartup.GetActive()))
+
+		if winSetings.CheckBtnLog.Activate() {
+			text, _ := winSetings.EntryLog.GetText()
+			cfg.Section("Main").Key("Log").SetValue(text)
+		} else {
+			cfg.Section("Main").Key("Log").SetValue("")
+		}
+
+		cfg.Section("Main").Key("Language").SetValue(winSetings.ComboLang.GetActiveID())
+		cfg.SaveTo(cfgFile)
+
+		winSetings.Window.Close()
+	})
+
+	// Изменение языка при закрытии
+	winSetings.Window.Connect("delete-event", func() {
+		if oldlocale != winSetings.ComboLang.GetActiveID() {
+			win.locale, _ = locales.New(localesFile, winSetings.ComboLang.GetActiveID())
+			win.SetLocale()
+		}
+
+	})
+
+	winSetings.Run()
 }
 
 // Сохраняем перевод

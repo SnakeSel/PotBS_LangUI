@@ -35,6 +35,12 @@ Original text = Оригинальный текст
 Text to replace = Текст замены
 Replacement pattern = Шаблон замены
 Template editor = Редактор шаблонов
+open the latest project = открыть последний проект
+file selection dialog = диалог выбора файлов
+Language = Язык программы
+Startup action = При запуске
+Save log file = Сохранять лог
+Log file = Файл лога
 
 [en-US]
 LocaleName = English

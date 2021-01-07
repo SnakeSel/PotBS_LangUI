@@ -218,6 +218,17 @@ func GetSeparator(b *gtk.Builder, id string) (el *gtk.Separator) {
 	return
 }
 
+func GetFileChooserButton(b *gtk.Builder, id string) (el *gtk.FileChooserButton) {
+	obj, e := b.GetObject(id)
+	if e != nil {
+		log.Printf("FileChooserButton error: %s", e)
+		return nil
+	}
+
+	el, _ = obj.(*gtk.FileChooserButton)
+	return
+}
+
 func GetToolButton(b *gtk.Builder, id string) (el *gtk.ToolButton) {
 	obj, e := b.GetObject(id)
 	if e != nil {

@@ -45,3 +45,27 @@ func loadFromIni(file string) {
 	}
 
 }
+
+// Получаем карту [Секция]LocaleName из файла перевода
+// Например: [en-US]English
+func GetAllLocaleName(file string) map[string]string {
+	locales := make(map[string]string)
+
+	locIni, _ := ini.LooseLoad(file)
+	// if err != nil {
+	// 	//
+	// }
+	for _, section := range locIni.Sections() {
+		if section.Name() == "DEFAULT" {
+			continue
+		}
+		LocaleName, err := section.GetKey("LocaleName")
+		if err != nil {
+			continue
+		}
+
+		locales[section.Name()] = LocaleName.Value()
+
+	}
+	return locales
+}

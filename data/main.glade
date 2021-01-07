@@ -129,6 +129,7 @@
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">settings</property>
                 <property name="icon-name">applications-system</property>
+                <signal name="clicked" handler="main_btn_Settings_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -275,7 +276,6 @@
 Без перевода
 Перевод без оригинала
 Пользовательский</property>
-                <property name="double-buffered">False</property>
                 <property name="resize-mode">immediate</property>
                 <property name="active">0</property>
                 <property name="active-id">1</property>
