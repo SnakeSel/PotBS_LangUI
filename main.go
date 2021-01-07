@@ -23,12 +23,14 @@ import (
 
 	"os"
 
+	"fmt"
+
 	"github.com/tealeg/xlsx"
 	"gopkg.in/ini.v1"
 )
 
 const (
-	version     = "20201225"
+	version     = "20210107"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -56,6 +58,12 @@ type intProject interface {
 
 	ValidateTranslate(string, string) error
 }
+
+// startup id
+const (
+	startup_autoload = iota
+	startup_opendialog
+)
 
 // IDs to access the tree view columns by
 const (
@@ -99,8 +107,10 @@ type MainWindow struct {
 	combo_filter *gtk.ComboBoxText
 	userFilter   *gtk.Entry
 
+	ToolBtnOpen       *gtk.ToolButton
 	ToolBtnSave       *gtk.ToolButton
 	ToolBtnSaveAs     *gtk.ToolButton
+	ToolBtnSettings   *gtk.ToolButton
 	ToolBtnTmpl       *gtk.ToolButton
 	ToolBtnExportXLSX *gtk.ToolButton
 	ToolBtnImportXLSX *gtk.ToolButton
@@ -109,15 +119,12 @@ type MainWindow struct {
 
 	Iterator *gtk.TreeIter
 	Project  intProject
-	//Project *potbs.Translate
 
 	tmplFile           string        // Файл шаблонов для языка (tmplPatch_sourceLang-targetLang)
 	filterChildEndIter *gtk.TreeIter // Хранит итератор последней записи. используется при обратном поиске
 	clearNotOriginal   bool          // не сохранять строки которых нет в оригинале
-	//langFileFullPath   string        // Хранит путь к файлу и имя файла с переводом
-	langFilePath string // Хранит путь к файлу с переводом
-	langFileName string // Хранит только имя файла перевода
-	langFileExt  string
+	sourceFile         string
+	targetFile         string
 
 	locale *locales.Printer
 }
@@ -236,6 +243,41 @@ func main() {
 			win.lineSelected(dialog)
 		})
 
+		win.ToolBtnOpen.Connect("clicked", func() {
+			// Получаем пути к файлам
+			source, target, _, err := win.getFileNames(filepath.Dir(win.targetFile))
+			if err != nil {
+				return
+			}
+
+			//win.ListStore.Clear()
+			// TODO FIX IT!!!!
+			// т.к. ListStore.Clear() отрабатывает ОЧЕНЬ долго, пока просто создаем новый ListStore
+			// но старый список ОСТАЕТСЯ В ПАМЯТИ
+			win.ListStore, err = gtk.ListStoreNew(glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING)
+			errorCheck(err)
+
+			win.Filter, _ = win.ListStore.TreeModel.FilterNew(nil)
+			win.TreeView.SetModel(win.Filter.ToTreeModel())
+
+			// Открываем перевод
+			win.open(source, target)
+
+			// Задаем фильтру правила фильтрации
+			win.Filter.SetVisibleFunc(win.funcFilter)
+			win.Filter.Refilter()
+
+			// Указываем язык для окна диалаога (gtranslate)
+			dialog.SourceLang = win.Project.GetSourceLang()
+			dialog.TargetLang = win.Project.GetTargetLang()
+
+			// Загружаем шаблоны
+			TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
+
+			dialog.TmplList = &TmplList
+
+		})
+
 		//Сигналы dialog_translate
 		dialog.BtnCancel.Connect("clicked", func() {
 			dialog.Window.Hide()
@@ -260,9 +302,6 @@ func main() {
 
 		win.clearNotOriginal = cfg.Section("Main").Key("ClearNotOriginal").MustBool(false)
 
-		// Путь к файлам
-		win.langFilePath = cfg.Section("Main").Key("Patch").MustString("")
-
 		// #########################################
 		//Язык программы
 
@@ -271,72 +310,33 @@ func main() {
 		dialog.PrintLocale(win.locale)
 
 		// #########################################
+		var source, target string
+		// Получаем пути
+		switch cfg.Section("Main").Key("Startup").MustInt(1) {
+		case startup_autoload:
+			source = cfg.Section("Project").Key("SourceFile").MustString("")
+			target = cfg.Section("Project").Key("TargetFile").MustString("")
 
-		// Получаем пути к файлам перевода
-		sourceFile, targetFile, extFile := win.getFileNames()
-
-		win.langFileExt = extFile
-		switch extFile {
-		case ".xml":
-			log.Println("Use apkstrings")
-			win.Project = apkstrings.New(apkstrings.Config{})
 		default:
-			// Проект перевода
-			win.Project = potbs.New(potbs.Config{
-				//Debug:     os.Stdout,
-				//Debug: log.Writer(),
-			})
-
-		}
-
-		// Загружаем язык перевода
-		win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString(""))
-		win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString(""))
-
-		switch win.Project.GetModuleName() {
-		case "potbs":
-			// Если SourceLang не задан в настройках, то берем из имени файла
-			// иначе проверяем из настроек
-			if win.Project.GetSourceLang() == "" {
-				win.Project.SetSourceLang(str.ToUpper(filepath.Base(sourceFile)[0:2]))
+			// Путь к файлам
+			langFilePath := cfg.Section("Main").Key("Patch").MustString("")
+			// Получаем пути к файлам
+			source, target, _, err = win.getFileNames(langFilePath)
+			if err != nil {
+				win.Window.Close()
+				log.Fatal(err.Error())
 			}
 
-			// Если SourceLang не задан в настройках, то берем из имени файла
-			// иначе проверяем из настроек
-			if win.Project.GetTargetLang() == "" {
-				win.Project.SetTargetLang(str.ToUpper(filepath.Base(targetFile)[0:2]))
-			}
-
-			win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
-		case "apkstrings":
-			if win.Project.GetSourceLang() == "" {
-				win.Project.SetSourceLang("EN")
-			}
-
-			if win.Project.GetTargetLang() == "" {
-				win.Project.SetTargetLang("RU")
-			}
-			win.tmplFile = tmplPatch + "_apkstrings_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
-
 		}
 
-		if win.Project.GetSourceLang() == "" {
-			win.Project.SetSourceLang("Source")
-		}
-		if win.Project.GetTargetLang() == "" {
-			win.Project.SetTargetLang("Target")
-		}
+		// Открываем перевод
+		win.open(source, target)
 
-		// Загружаем файлы перевода и выводим в таблицу
-		err = win.loadListStore(sourceFile, targetFile)
-		if err != nil {
-			log.Fatalln("[ERR]\tОшибка загрузки файлов")
-			os.Exit(1)
-		}
+		// Задаем фильтру правила фильтрации
+		win.Filter.SetVisibleFunc(win.funcFilter)
+		win.Filter.Refilter()
 
-		win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
-		win.TreeView.GetColumn(columnRU).SetTitle(win.Project.GetTargetLang())
-
+		// Указываем язык для окна диалаога (gtranslate)
 		dialog.SourceLang = win.Project.GetSourceLang()
 		dialog.TargetLang = win.Project.GetTargetLang()
 
@@ -344,9 +344,6 @@ func main() {
 		TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
 
 		dialog.TmplList = &TmplList
-
-		win.Filter.SetVisibleFunc(win.funcFilter)
-		win.Filter.Refilter()
 
 		// Отображаем все виджеты в окне
 		win.Window.Show()
@@ -387,8 +384,10 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.combo_filter = gtkutils.GetComboBoxText(b, "combo_filter")
 	win.userFilter = gtkutils.GetEntry(b, "entry_userfilter")
 
+	win.ToolBtnOpen = gtkutils.GetToolButton(b, "tool_btn_open")
 	win.ToolBtnSave = gtkutils.GetToolButton(b, "tool_btn_save")
 	win.ToolBtnSaveAs = gtkutils.GetToolButton(b, "tool_btn_saveAs")
+	win.ToolBtnSettings = gtkutils.GetToolButton(b, "tool_btn_settings")
 	win.ToolBtnTmpl = gtkutils.GetToolButton(b, "tool_btn_tmpl")
 	win.ToolBtnExportXLSX = gtkutils.GetToolButton(b, "tool_btn_export_xlsx")
 	win.ToolBtnImportXLSX = gtkutils.GetToolButton(b, "tool_btn_import_xlsx")
@@ -400,75 +399,157 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	return win
 }
 
-// Запускает диалог выбора файла перевода
-// с указанным заголовком
-// возвращает полный путь к файлу
-func (win *MainWindow) fileChooserFullPath(title string) string {
+// Открываем перевод
+func (win *MainWindow) open(sourceFile, targetFile string) {
+	var fileExt string
+	// проверяем файлы на существование
+	_, err := os.Stat(sourceFile)
+	_, err2 := os.Stat(targetFile)
+	if err == nil && err2 == nil {
+		fileExt = filepath.Ext(sourceFile)
+		win.sourceFile = sourceFile
+		win.targetFile = targetFile
+	} else {
+		// open source file
+		win.sourceFile, win.targetFile, fileExt, err = win.getFileNames("")
+		if err != nil {
+			win.Window.Close()
+			log.Fatal(err.Error())
+		}
+	}
 
-	filter_dat, err := gtk.FileFilterNew()
-	errorCheck(err)
-
-	switch win.langFileExt {
+	switch fileExt {
 	case ".xml":
-		filter_dat.AddPattern("strings.xml")
-		filter_dat.SetName("strings.xml")
-	case ".dat":
-		filter_dat.AddPattern("*.dat")
-		filter_dat.SetName(".dat")
+		log.Println("[INFO]\tUse apkstrings")
+		win.Project = apkstrings.New(apkstrings.Config{})
 	default:
-		filter_dat.AddPattern("*.dat")
-		filter_dat.AddPattern("strings.xml")
-		filter_dat.SetName("All Supported")
+		// Проект перевода
+		win.Project = potbs.New(potbs.Config{
+			//Debug:     os.Stdout,
+			//Debug: log.Writer(),
+		})
+
 	}
 
-	filter_all, err := gtk.FileFilterNew()
-	errorCheck(err)
-	filter_all.AddPattern("*")
-	filter_all.SetName("Any files")
+	// Загружаем язык перевода
+	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString(""))
+	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString(""))
 
-	native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
-	errorCheck(err)
+	switch win.Project.GetModuleName() {
+	case "potbs":
+		// Если SourceLang не задан в настройках, то берем из имени файла
+		// иначе проверяем из настроек
+		if win.Project.GetSourceLang() == "" {
+			win.Project.SetSourceLang(str.ToUpper(filepath.Base(win.sourceFile)[0:2]))
+		}
 
-	if win.langFilePath != "" {
-		native.SetCurrentFolder(win.langFilePath)
+		// Если SourceLang не задан в настройках, то берем из имени файла
+		// иначе проверяем из настроек
+		if win.Project.GetTargetLang() == "" {
+			win.Project.SetTargetLang(str.ToUpper(filepath.Base(win.targetFile)[0:2]))
+		}
+
+		win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
+	case "apkstrings":
+		if win.Project.GetSourceLang() == "" {
+			win.Project.SetSourceLang("EN")
+		}
+
+		if win.Project.GetTargetLang() == "" {
+			win.Project.SetTargetLang("RU")
+		}
+		win.tmplFile = tmplPatch + "_apkstrings_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
+
 	}
-	native.AddFilter(filter_dat)
-	native.AddFilter(filter_all)
-	native.SetFilter(filter_dat)
 
-	respons := native.Run()
-
-	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
-	if respons != int(gtk.RESPONSE_ACCEPT) {
-		win.Window.Close()
-		log.Fatal("[INFO]\tОтмена выбора файла")
+	if win.Project.GetSourceLang() == "" {
+		win.Project.SetSourceLang("Source")
 	}
-	//win.langFilePath, _ = native.GetCurrentFolder()
-	//win.langFileName = native.GetFilename()
-	FileFullPath := native.GetFilename()
+	if win.Project.GetTargetLang() == "" {
+		win.Project.SetTargetLang("Target")
+	}
 
-	native.Destroy()
+	// Загружаем файлы перевода и выводим в таблицу
+	err = win.loadListStore(win.sourceFile, win.targetFile)
+	if err != nil {
+		log.Fatalln("[ERR]\tОшибка загрузки файлов")
+		os.Exit(1)
+	}
 
-	return FileFullPath
+	win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
+	win.TreeView.GetColumn(columnRU).SetTitle(win.Project.GetTargetLang())
+
 }
 
-func (win *MainWindow) getFileNames() (sourceName, targetName, extName string) {
+// Запускает диалог выбора source и target файлов
+// filePath - директория выбора файлов
+func (win *MainWindow) getFileNames(filePath string) (sourceName, targetName, extName string, err error) {
+	//Функция создания и выполнения
+	fileChooserDialog := func(title string) (string, error) {
+		filter_dat, err := gtk.FileFilterNew()
+		errorCheck(err)
+
+		switch extName {
+		case ".xml":
+			filter_dat.AddPattern("strings.xml")
+			filter_dat.SetName("strings.xml")
+		case ".dat":
+			filter_dat.AddPattern("*.dat")
+			filter_dat.SetName(".dat")
+		default:
+			filter_dat.AddPattern("*.dat")
+			filter_dat.AddPattern("strings.xml")
+			filter_dat.SetName("All Supported")
+		}
+
+		filter_all, err := gtk.FileFilterNew()
+		errorCheck(err)
+		filter_all.AddPattern("*")
+		filter_all.SetName("Any files")
+
+		native, err := gtk.FileChooserNativeDialogNew(title, win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
+		errorCheck(err)
+
+		if filePath != "" {
+			native.SetCurrentFolder(filePath)
+		}
+		native.AddFilter(filter_dat)
+		native.AddFilter(filter_all)
+		native.SetFilter(filter_dat)
+
+		respons := native.Run()
+
+		// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
+		if respons != int(gtk.RESPONSE_ACCEPT) {
+			//win.Window.Close()
+			//log.Fatal("[INFO]\tОтмена выбора файла")
+			return "", fmt.Errorf("Отмена выбора файла")
+
+		}
+
+		filename := native.GetFilename()
+		native.Destroy()
+
+		return filename, nil
+	}
 
 	// open source file
-
-	sourceName = win.fileChooserFullPath(win.locale.Sprintf("SelectSourceFile"))
-	win.langFilePath = filepath.Dir(sourceName)
+	sourceName, err = fileChooserDialog(win.locale.Sprintf("SelectSourceFile"))
+	if err != nil {
+		return "", "", "", err
+	}
+	filePath = filepath.Dir(sourceName) //Нужен чтобы окно выбора target открылось там же
 	extName = filepath.Ext(sourceName)
-	win.langFileExt = extName
 
 	//log.Println(extName)
 
 	// open target file
-	targetName = win.fileChooserFullPath(win.locale.Sprintf("SelectTargetFile"))
-	win.langFilePath = filepath.Dir(targetName)
-	win.langFileName = filepath.Base(targetName)
+	targetName, err = fileChooserDialog(win.locale.Sprintf("SelectTargetFile"))
+	if err != nil {
+		return "", "", "", err
+	}
 
-	return sourceName, targetName, extName
+	return sourceName, targetName, extName, nil
 }
 
 func (win *MainWindow) loadListStore(sourceName, targetName string) error {
@@ -587,8 +668,10 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 // Применение выбранного языка
 func (win *MainWindow) printLocale() {
 	win.Window.SetTitle(win.locale.Sprintf("Title"))
+	win.ToolBtnOpen.SetLabel(win.locale.Sprintf("New"))
 	win.ToolBtnSave.SetLabel(win.locale.Sprintf("Save"))
 	win.ToolBtnSaveAs.SetLabel(win.locale.Sprintf("SaveAs"))
+	win.ToolBtnSettings.SetTooltipText(win.locale.Sprintf("Settings"))
 	win.ToolBtnExportXLSX.SetLabel(win.locale.Sprintf("ExportXLSX"))
 	win.ToolBtnImportXLSX.SetLabel(win.locale.Sprintf("ImportXLSX"))
 	win.ToolBtnTmpl.SetLabel(win.locale.Sprintf("Template"))
@@ -616,18 +699,22 @@ func (win *MainWindow) saveCfg() {
 	cfg.Section("Main").Key("posX").SetValue(strconv.Itoa(x))
 	cfg.Section("Main").Key("posY").SetValue(strconv.Itoa(y))
 
-	cfg.Section("Main").Key("Patch").SetValue(win.langFilePath)
+	cfg.Section("Main").Key("Patch").SetValue(filepath.Dir(win.targetFile))
+
+	cfg.Section("Project").Key("SourceFile").SetValue(win.sourceFile)
+	cfg.Section("Project").Key("TargetFile").SetValue(win.targetFile)
 
 	cfg.SaveTo(cfgFile)
 }
 
 func (win *MainWindow) ToolBtnSave_clicked() {
 	dialog := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK_CANCEL, win.locale.Sprintf("Warning")+"!")
-	dialog.FormatSecondaryText(win.locale.Sprintf("Are you sure you want to overwrite") + ":\n" + win.langFileName + " ?")
+	dialog.FormatSecondaryText(win.locale.Sprintf("Are you sure you want to overwrite") + ":\n" + filepath.Base(win.targetFile) + " ?")
 	resp := dialog.Run()
 	dialog.Close()
 	if resp == gtk.RESPONSE_OK {
-		win.SaveTarget(filepath.Join(win.langFilePath, win.langFileName))
+		//win.SaveTarget(filepath.Join(win.langFilePath, win.langFileName))
+		win.SaveTarget(win.targetFile)
 		//win.Window.Destroy()
 	}
 
@@ -636,8 +723,8 @@ func (win *MainWindow) ToolBtnSave_clicked() {
 func (win *MainWindow) ToolBtnSaveAs_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select a file to save"), win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
 	errorCheck(err)
-	native.SetCurrentFolder(win.langFilePath)
-	native.SetCurrentName(win.Project.GetTargetLang() + "_data_mod" + win.langFileExt)
+	native.SetCurrentFolder(filepath.Dir(win.targetFile))
+	native.SetCurrentName(win.Project.GetTargetLang() + "_data_mod" + filepath.Ext(win.targetFile))
 	resp := native.Run()
 
 	if resp == int(gtk.RESPONSE_ACCEPT) {
@@ -677,7 +764,7 @@ func (win *MainWindow) ToolBtnImportXLSX_clicked() {
 	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select the XLSX file to import"), win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
 	errorCheck(err)
 
-	native.SetCurrentFolder(win.langFilePath)
+	native.SetCurrentFolder(filepath.Dir(win.targetFile))
 
 	native.AddFilter(filter_dat)
 	native.AddFilter(filter_all)

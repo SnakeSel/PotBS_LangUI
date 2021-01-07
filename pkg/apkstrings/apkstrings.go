@@ -114,8 +114,10 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	defer file.Close()
 
 	// read our opened xmlFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(file)
-
+	byteValue, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
 	// we initialize array
 	var res Resources
 	// we unmarshal our byteArray which contains our
