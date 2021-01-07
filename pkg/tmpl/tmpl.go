@@ -8,6 +8,7 @@ import (
 	str "strings"
 
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
+	"github.com/snakesel/potbs_langui/pkg/locales"
 
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -32,8 +33,9 @@ const (
 type TmplWindow struct {
 	Window *gtk.Window
 
-	TreeView  *gtk.TreeView
-	ListStore *gtk.ListStore
+	Label_Head *gtk.Label
+	TreeView   *gtk.TreeView
+	ListStore  *gtk.ListStore
 
 	LineSelection *gtk.TreeSelection
 
@@ -46,6 +48,7 @@ type TmplWindow struct {
 
 	Col_SourceLang *gtk.TreeViewColumn
 	Col_TargetLang *gtk.TreeViewColumn
+	locale         *locales.Printer
 }
 
 type DialogWindow struct {
@@ -75,6 +78,7 @@ func TmplWindowCreate() *TmplWindow {
 	win.Window = obj.(*gtk.Window)
 
 	// Получаем остальные объекты window_main
+	win.Label_Head = gtkutils.GetLabel(b, "label_header")
 	win.TreeView = gtkutils.GetTreeView(b, "tmpl_treeview")
 	win.ListStore = gtkutils.GetListStore(b, "tmpl_liststore")
 	win.LineSelection = gtkutils.GetTreeSelection(b, "tmpl_lineSelection")
@@ -209,6 +213,9 @@ func (win *TmplWindow) Run(tmpls []TTmpl) {
 	}
 
 	dialog = dialogWindowCreate()
+	dialog.Window.SetTitle(win.locale.Sprintf("Replacement pattern"))
+	dialog.TextEn.SetPlaceholderText(win.locale.Sprintf("Original text"))
+	dialog.TextRu.SetPlaceholderText(win.locale.Sprintf("Text to replace"))
 
 	dialog.BtnOk.Connect("clicked", func() {
 		txtEn, err := dialog.TextEn.GetText()
@@ -278,6 +285,15 @@ func (win *TmplWindow) lineSelected() {
 	dialog.NewItem = false
 	dialog.Window.Run()
 
+}
+
+// Применение выбранного языка
+func (win *TmplWindow) SetLocale(locale *locales.Printer) {
+	win.locale = locale
+	win.Window.SetTitle(locale.Sprintf("Template editor"))
+	win.Label_Head.SetText(locale.Sprintf("Templates for replacement") + "\n" + locale.Sprintf("The text is case sensitive"))
+	win.BtnAdd.SetLabel(locale.Sprintf("Add"))
+	win.BtnDel.SetLabel(locale.Sprintf("Del"))
 }
 
 func errorCheck(e error, text_opt ...string) {

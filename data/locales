@@ -27,6 +27,14 @@ Change only untranslated strings or all=Заменить только не пе�
 Cancel = Отмена
 DialogTitle = Перевод
 from template = из шаблона
+Templates for replacement = Шаблоны для замены
+The text is case sensitive = Текст заменяется с учетом регистра
+Add = Добавить
+Del = Удалить
+Original text = Оригинальный текст
+Text to replace = Текст замены
+Replacement pattern = Шаблон замены
+Template editor = Редактор шаблонов
 
 [en-US]
 LocaleName = English

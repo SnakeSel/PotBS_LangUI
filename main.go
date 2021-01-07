@@ -306,8 +306,8 @@ func main() {
 		//Язык программы
 
 		win.locale, _ = locales.New(localesFile, cfg.Section("Main").Key("Language").MustString("en-US"))
-		win.printLocale()
-		dialog.PrintLocale(win.locale)
+		win.SetLocale()
+		dialog.SetLocale(win.locale)
 
 		// #########################################
 		var source, target string
@@ -666,7 +666,7 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 }
 
 // Применение выбранного языка
-func (win *MainWindow) printLocale() {
+func (win *MainWindow) SetLocale() {
 	win.Window.SetTitle(win.locale.Sprintf("Title"))
 	win.ToolBtnOpen.SetLabel(win.locale.Sprintf("New"))
 	win.ToolBtnSave.SetLabel(win.locale.Sprintf("Save"))
@@ -895,6 +895,10 @@ func (win *MainWindow) ComboFilter_clicked() {
 func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 	wintmpl := tmpl.TmplWindowCreate()
+	// Применяем локализацию
+	wintmpl.SetLocale(win.locale)
+
+	// Загружаем настройки
 	wintmpl.Col_SourceLang.SetTitle(win.Project.GetSourceLang())
 	wintmpl.Col_TargetLang.SetTitle(win.Project.GetTargetLang())
 
@@ -915,6 +919,7 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 
 		wintmpl.Window.Close()
 	})
+
 	//Сохранение настроек при закрытии окна
 	wintmpl.Window.Connect("delete-event", func() {
 		w, h := wintmpl.Window.GetSize()

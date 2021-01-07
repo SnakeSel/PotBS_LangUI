@@ -125,7 +125,7 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 }
 
 // Применение выбранного языка
-func (dialog *DialogWindow) PrintLocale(locale *locales.Printer) {
+func (dialog *DialogWindow) SetLocale(locale *locales.Printer) {
 	dialog.Window.SetTitle(locale.Sprintf("DialogTitle"))
 	dialog.BtnTmplRun.SetLabel(locale.Sprintf("from template"))
 
