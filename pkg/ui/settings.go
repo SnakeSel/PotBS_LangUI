@@ -36,6 +36,12 @@ type SettingsWindow struct {
 	BtnOk        *gtk.Button
 	BtnCancel    *gtk.Button
 
+	LblProjLang     *gtk.Label
+	LblSourceLang   *gtk.Label
+	LblTargetLang   *gtk.Label
+	ComboSourceLang *gtk.ComboBoxText
+	ComboTargetLang *gtk.ComboBoxText
+
 	AllLocaleName map[string]string
 }
 
@@ -63,6 +69,12 @@ func SettingsWindowNew() *SettingsWindow {
 	win.EntryLog = gtkutils.GetEntry(b, "EntryLog")
 	win.BtnOk = gtkutils.GetButton(b, "BtnOk")
 	win.BtnCancel = gtkutils.GetButton(b, "BtnCancel")
+
+	win.LblProjLang = gtkutils.GetLabel(b, "lbl_projectLang")
+	win.LblSourceLang = gtkutils.GetLabel(b, "lbl_sourceLang")
+	win.LblTargetLang = gtkutils.GetLabel(b, "lbl_targetLang")
+	win.ComboSourceLang = gtkutils.GetComboBoxText(b, "combo_sourceLang")
+	win.ComboTargetLang = gtkutils.GetComboBoxText(b, "combo_targetLang")
 
 	win.BtnCancel.Connect("clicked", func() {
 		win.Window.Close()
@@ -114,6 +126,13 @@ func (win *SettingsWindow) LoadCfg(cfg *ini.File) error {
 
 	}
 
+	// Загрузка проект-язык
+	sourcelang := cfg.Section("Project").Key("SourceLang").MustString("AUTO")
+	targetlang := cfg.Section("Project").Key("TargetLang").MustString("AUTO")
+
+	win.ComboSourceLang.SetActiveID(sourcelang)
+	win.ComboTargetLang.SetActiveID(targetlang)
+
 	return nil
 }
 
@@ -135,4 +154,9 @@ func (win *SettingsWindow) SetLocale(locale *locales.Printer) {
 	win.lblStarup.SetLabel(locale.Sprintf("Startup action") + ":")
 	win.CheckBtnLog.SetLabel(locale.Sprintf("Save log file"))
 	win.LblLogFile.SetLabel(locale.Sprintf("Log file") + ":")
+
+	win.LblProjLang.SetLabel(locale.Sprintf("SettingProjLang"))
+	win.LblSourceLang.SetLabel(locale.Sprintf("Source Lang") + ":")
+	win.LblTargetLang.SetLabel(locale.Sprintf("Target Lang") + ":")
+
 }

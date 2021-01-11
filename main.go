@@ -191,7 +191,7 @@ func main() {
 			"main_btn_export_xlsx_clicked": win.ToolBtnExportXLSX_clicked,
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
-			"main_btn_Settings_clicked":    win.ToolBtnSettings_clicked,
+			//"main_btn_Settings_clicked":    win.ToolBtnSettings_clicked,
 			"main_combo_filter_change":     win.ComboFilter_clicked,
 			"userfilter_activate":          win.ComboFilter_clicked,
 			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
@@ -208,6 +208,10 @@ func main() {
 			// Позиция всегда по центру родителя. Поэтому ее не сохраняем
 			cfg.SaveTo(cfgFile)
 			application.Quit()
+		})
+
+		win.ToolBtnSettings.Connect("clicked", func() {
+			win.ToolBtnSettings_clicked(dialog)
 		})
 
 		win.BtnDown.Connect("clicked", func() {
@@ -432,30 +436,30 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 	}
 
 	// Загружаем язык перевода
-	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString(""))
-	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString(""))
+	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString("AUTO"))
+	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString("AUTO"))
 
 	switch win.Project.GetModuleName() {
 	case "potbs":
 		// Если SourceLang не задан в настройках, то берем из имени файла
 		// иначе проверяем из настроек
-		if win.Project.GetSourceLang() == "" {
+		if win.Project.GetSourceLang() == "AUTO" {
 			win.Project.SetSourceLang(str.ToUpper(filepath.Base(win.sourceFile)[0:2]))
 		}
 
-		// Если SourceLang не задан в настройках, то берем из имени файла
+		// Если TargetLang не задан в настройках, то берем из имени файла
 		// иначе проверяем из настроек
-		if win.Project.GetTargetLang() == "" {
+		if win.Project.GetTargetLang() == "AUTO" {
 			win.Project.SetTargetLang(str.ToUpper(filepath.Base(win.targetFile)[0:2]))
 		}
 
 		win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
 	case "apkstrings":
-		if win.Project.GetSourceLang() == "" {
+		if win.Project.GetSourceLang() == "AUTO" {
 			win.Project.SetSourceLang("EN")
 		}
 
-		if win.Project.GetTargetLang() == "" {
+		if win.Project.GetTargetLang() == "AUTO" {
 			win.Project.SetTargetLang("RU")
 		}
 		win.tmplFile = tmplPatch + "_apkstrings_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
@@ -735,84 +739,6 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 
 }
 
-func (win *MainWindow) ToolBtnExportXLSX_clicked() {
-	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select a file to save"), win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
-	errorCheck(err)
-	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
-	native.SetCurrentName(win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang() + ".xlsx")
-	resp := native.Run()
-
-	if resp == int(gtk.RESPONSE_ACCEPT) {
-		saveXLSXfile(win, native.GetFilename())
-		log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
-		//win.Window.Destroy()
-	}
-
-}
-
-func (win *MainWindow) ToolBtnImportXLSX_clicked() {
-	filter_dat, err := gtk.FileFilterNew()
-	errorCheck(err)
-	filter_dat.AddPattern("*.xlsx")
-	filter_dat.SetName(".xlsx")
-
-	filter_all, err := gtk.FileFilterNew()
-	errorCheck(err)
-	filter_all.AddPattern("*")
-	filter_all.SetName("Any files")
-
-	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select the XLSX file to import"), win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
-	errorCheck(err)
-
-	native.SetCurrentFolder(filepath.Dir(win.targetFile))
-
-	native.AddFilter(filter_dat)
-	native.AddFilter(filter_all)
-	native.SetFilter(filter_dat)
-
-	respons := native.Run()
-	xlsfile := native.GetFilename()
-	native.Destroy()
-	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
-	if respons != int(gtk.RESPONSE_ACCEPT) {
-		return
-	}
-
-	dlg, _ := gtk.DialogNew()
-	//dlg.SetParentWindow(win.Window)
-	dlg.SetTitle("Import " + filepath.Base(xlsfile))
-	dlg.AddButton(win.locale.Sprintf("Not translated"), gtk.RESPONSE_ACCEPT)
-	dlg.AddButton(win.locale.Sprintf("ALL"), gtk.RESPONSE_OK)
-	dlg.AddButton(win.locale.Sprintf("Cancel"), gtk.RESPONSE_CANCEL)
-	dlg.SetPosition(gtk.WIN_POS_CENTER)
-
-	dlgBox, _ := dlg.GetContentArea()
-	dlgBox.SetSpacing(6)
-
-	lbl, _ := gtk.LabelNew(win.locale.Sprintf("Import from the first sheet in a book") + "!\n" + win.locale.Sprintf("Change only untranslated strings or all") + "?")
-	lbl.SetMarginStart(6)
-	lbl.SetMarginEnd(6)
-	//lbl.SetLineWrap(true)
-	dlgBox.Add(lbl)
-	lbl.Show()
-
-	resp := dlg.Run()
-	dlg.Destroy()
-
-	switch resp {
-	case gtk.RESPONSE_CANCEL:
-		return
-	case gtk.RESPONSE_ACCEPT:
-		log.Println("[INFO]\tимпортируем только не переведенные из " + xlsfile)
-		loadXLSXfile(win, xlsfile, false)
-
-	case gtk.RESPONSE_OK:
-		log.Println("[INFO]\tимпортируем все из " + xlsfile)
-		loadXLSXfile(win, xlsfile, true)
-	}
-
-}
-
 // Фильтр
 func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
 
@@ -936,7 +862,8 @@ func (win *MainWindow) ToolBtnTmpl_clicked() {
 	wintmpl.Run(TmplList)
 }
 
-func (win *MainWindow) ToolBtnSettings_clicked() {
+// Открывает окно настроек
+func (win *MainWindow) ToolBtnSettings_clicked(dialog *ui.DialogWindow) {
 
 	winSetings := ui.SettingsWindowNew()
 	// Применяем локализацию
@@ -961,7 +888,14 @@ func (win *MainWindow) ToolBtnSettings_clicked() {
 		}
 
 		cfg.Section("Main").Key("Language").SetValue(winSetings.ComboLang.GetActiveID())
+
+		cfg.Section("Project").Key("SourceLang").SetValue(winSetings.ComboSourceLang.GetActiveID())
+		cfg.Section("Project").Key("TargetLang").SetValue(winSetings.ComboTargetLang.GetActiveID())
+
 		cfg.SaveTo(cfgFile)
+
+		dialog.SourceLang = win.Project.GetSourceLang()
+		dialog.TargetLang = win.Project.GetTargetLang()
 
 		winSetings.Window.Close()
 	})
@@ -971,6 +905,7 @@ func (win *MainWindow) ToolBtnSettings_clicked() {
 		if oldlocale != winSetings.ComboLang.GetActiveID() {
 			win.locale, _ = locales.New(localesFile, winSetings.ComboLang.GetActiveID())
 			win.SetLocale()
+			dialog.SetLocale(win.locale)
 		}
 
 	})
@@ -1111,6 +1046,7 @@ func (win *MainWindow) lineSelected(dialog *ui.DialogWindow) {
 	dialog.Label.SetText(strID)
 
 	win.Iterator = iter
+
 	//dialog.Window.Run()
 	dialog.Window.Show()
 

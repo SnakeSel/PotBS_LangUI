@@ -4,9 +4,90 @@ import (
 	"log"
 	str "strings"
 
+	"path/filepath"
+
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/tealeg/xlsx"
 )
+
+func (win *MainWindow) ToolBtnExportXLSX_clicked() {
+	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select a file to save"), win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
+	errorCheck(err)
+	native.SetCurrentFolder(cfg.Section("Main").Key("Patch").MustString(""))
+	native.SetCurrentName(win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang() + ".xlsx")
+	resp := native.Run()
+
+	if resp == int(gtk.RESPONSE_ACCEPT) {
+		saveXLSXfile(win, native.GetFilename())
+		log.Printf("[INFO]\tФайл %s сохранен.\n", native.GetFilename())
+		//win.Window.Destroy()
+	}
+
+}
+
+func (win *MainWindow) ToolBtnImportXLSX_clicked() {
+	filter_dat, err := gtk.FileFilterNew()
+	errorCheck(err)
+	filter_dat.AddPattern("*.xlsx")
+	filter_dat.SetName(".xlsx")
+
+	filter_all, err := gtk.FileFilterNew()
+	errorCheck(err)
+	filter_all.AddPattern("*")
+	filter_all.SetName("Any files")
+
+	native, err := gtk.FileChooserNativeDialogNew(win.locale.Sprintf("Select the XLSX file to import"), win.Window, gtk.FILE_CHOOSER_ACTION_OPEN, "OK", "Cancel")
+	errorCheck(err)
+
+	native.SetCurrentFolder(filepath.Dir(win.targetFile))
+
+	native.AddFilter(filter_dat)
+	native.AddFilter(filter_all)
+	native.SetFilter(filter_dat)
+
+	respons := native.Run()
+	xlsfile := native.GetFilename()
+	native.Destroy()
+	// NativeDialog возвращает int с кодом ответа. -3 это GTK_RESPONSE_ACCEPT
+	if respons != int(gtk.RESPONSE_ACCEPT) {
+		return
+	}
+
+	dlg, _ := gtk.DialogNew()
+	//dlg.SetParentWindow(win.Window)
+	dlg.SetTitle("Import " + filepath.Base(xlsfile))
+	dlg.AddButton(win.locale.Sprintf("Not translated"), gtk.RESPONSE_ACCEPT)
+	dlg.AddButton(win.locale.Sprintf("ALL"), gtk.RESPONSE_OK)
+	dlg.AddButton(win.locale.Sprintf("Cancel"), gtk.RESPONSE_CANCEL)
+	dlg.SetPosition(gtk.WIN_POS_CENTER)
+
+	dlgBox, _ := dlg.GetContentArea()
+	dlgBox.SetSpacing(6)
+
+	lbl, _ := gtk.LabelNew(win.locale.Sprintf("Import from the first sheet in a book") + "!\n" + win.locale.Sprintf("Change only untranslated strings or all") + "?")
+	lbl.SetMarginStart(6)
+	lbl.SetMarginEnd(6)
+	//lbl.SetLineWrap(true)
+	dlgBox.Add(lbl)
+	lbl.Show()
+
+	resp := dlg.Run()
+	dlg.Destroy()
+
+	switch resp {
+	case gtk.RESPONSE_CANCEL:
+		return
+	case gtk.RESPONSE_ACCEPT:
+		log.Println("[INFO]\tимпортируем только не переведенные из " + xlsfile)
+		loadXLSXfile(win, xlsfile, false)
+
+	case gtk.RESPONSE_OK:
+		log.Println("[INFO]\tимпортируем все из " + xlsfile)
+		loadXLSXfile(win, xlsfile, true)
+	}
+
+}
 
 func saveXLSXfile(win *MainWindow, outfile string) {
 	//Экспортирует перевод в XLSX

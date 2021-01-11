@@ -128,6 +128,7 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 func (dialog *DialogWindow) SetLocale(locale *locales.Printer) {
 	dialog.Window.SetTitle(locale.Sprintf("DialogTitle"))
 	dialog.BtnTmplRun.SetLabel(locale.Sprintf("from template"))
+	dialog.BtnGooglTr.SetTooltipText(locale.Sprintf("Translate via Google Translate"))
 
 }
 

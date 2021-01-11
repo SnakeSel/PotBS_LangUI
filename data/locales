@@ -27,6 +27,7 @@ Change only untranslated strings or all=Заменить только не пе�
 Cancel = Отмена
 DialogTitle = Перевод
 from template = из шаблона
+Translate via Google Translate = Перевести через Google Tranlate
 Templates for replacement = Шаблоны для замены
 The text is case sensitive = Текст заменяется с учетом регистра
 Add = Добавить
@@ -41,6 +42,10 @@ Language = Язык программы
 Startup action = При запуске
 Save log file = Сохранять лог
 Log file = Файл лога
+SettingProjLang = Язык перевода. Влияет на GTranslate.
+Source Lang = Исходный
+Target Lang = Переведенный
+
 
 [en-US]
 LocaleName = English
@@ -56,3 +61,4 @@ Template = Template
 UserFilterPlaceholder = filter
 SearchPlaceholder = Search
 SearchFull = whole string
+SettingProjLang = Translation language. Affects Google Translate
