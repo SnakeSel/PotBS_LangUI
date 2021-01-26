@@ -8,6 +8,7 @@ import (
 
 const (
 	testdatfile = "test.dat"
+	testFailDat = "test_fail.dat"
 	datlen      = 15 //кол-во записей в тестовом файле
 
 	testoutdat = "testout.dat"
@@ -15,6 +16,7 @@ const (
 
 	datSize = 1692 // Размер создаваемого файла
 	dirSize = 321  // Размер создаваемого файла
+
 )
 
 var checkLen = map[int]int{
@@ -24,33 +26,53 @@ var checkLen = map[int]int{
 	12: 429,
 }
 
+func TestErroLoad(t *testing.T) {
+	prog := New(Config{
+		Debug: os.Stdout,
+	})
+	_, err := prog.LoadFile(testFailDat)
+	if err == nil {
+		t.Error("[LoadErrDat] failed: Failed dat file load success.")
+	}
+}
+
 func TestAll(t *testing.T) {
 
-	prog, _ := New(Config{
-		Debug: os.Stdout,
+	prog := New(Config{
+		//Debug: os.Stdout,
 	})
 	dat, err := prog.LoadFile(testdatfile)
 	if err != nil {
 		t.Log(err)
 	}
-	//fmt.Print(len(dat))
-	if len(dat) != datlen {
-		for N, line := range dat {
-			t.Logf("[%d] %v", N, line)
+
+	if dat.Len() != datlen {
+		i := 1
+		for e := dat.Front(); e != nil; e = e.Next() {
+			line := e.Value.([]string)
+			t.Logf("[%d] %v", i, line)
+			i++
 		}
-		t.Errorf("[LoadFile] failed: Должно быть: %d записей, распарсено: %d", datlen, len(dat))
+		t.Errorf("[LoadFile] failed: Должно быть: %d записей, распарсено: %d", datlen, dat.Len())
 	}
 
-	for N, line := range dat {
+	//id := prog.Header["id"]
+	text := prog.GetHeaderNbyName("text")
+
+	i := 0
+	for e := dat.Front(); e != nil; e = e.Next() {
+		line := e.Value.([]string)
 		// Проверка строки на длинну
-		if val, ok := checkLen[N]; ok {
-			if val != len(line.Text) {
-				t.Errorf("[LoadFile] failed: длинна записи %d = %d, вместо %d", N, len(line.Text), val)
+		if val, ok := checkLen[i]; ok {
+			if val != len(line[text]) {
+				t.Errorf("[LoadFile] failed: длинна записи %d = %d, вместо %d", i, len(line[text]), val)
 			}
 		}
+		i++
 	}
 
-	t.Logf("[LoadFile] success, записей: %d", len(dat))
+	t.Logf("[LoadFile] success, записей: %d", dat.Len())
+	t.Log("\n\n**************** Test Save File *************************")
 
 	prog.SaveFile(testoutdat, dat)
 	if info, err := os.Stat(testoutdat); err == nil {

@@ -3,7 +3,9 @@ package gtkutils
 import (
 	"errors"
 	"log"
+	str "strings"
 
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -216,6 +218,17 @@ func GetSeparator(b *gtk.Builder, id string) (el *gtk.Separator) {
 	return
 }
 
+func GetFileChooserButton(b *gtk.Builder, id string) (el *gtk.FileChooserButton) {
+	obj, e := b.GetObject(id)
+	if e != nil {
+		log.Printf("FileChooserButton error: %s", e)
+		return nil
+	}
+
+	el, _ = obj.(*gtk.FileChooserButton)
+	return
+}
+
 func GetToolButton(b *gtk.Builder, id string) (el *gtk.ToolButton) {
 	obj, e := b.GetObject(id)
 	if e != nil {
@@ -340,4 +353,62 @@ func GetIterFromTextPathInListStore(ls *gtk.ListStore, path string) (*gtk.TreeIt
 
 	iter, e := ls.GetIter(treePath)
 	return iter, e
+}
+
+// Получаем строку из столбца по итератору
+func GetFilterValueString(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column int) (string, error) {
+
+	value, err := fl.GetValue(iter, column)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := value.GetString()
+
+	return out, err
+}
+
+// Получаем строку из столбца по итератору
+func GetListStoreValueString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
+
+	if !ls.IterIsValid(iter) {
+		log.Printf("%v нот валид", iter)
+	}
+
+	value, err := ls.GetValue(iter, column)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := value.GetString()
+
+	return out, err
+}
+
+// Проверяем запись на совпадение с текстом
+func FilterSearchTextfromIter(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, text string, fullsearch bool) bool {
+	text = str.ToUpper(text)
+
+	// Цикл по всем полям
+	for i := 0; i < fl.GetNColumns(); i++ {
+		// Если поле не текстовое, пропускаем
+		if fl.GetColumnType(i) != glib.TYPE_STRING {
+			continue
+		}
+		value, _ := GetFilterValueString(fl, iter, i)
+		//fmt.Printf("col:%d\t%s\n", i, value)
+		// Если полнотекстовый поиск
+		if fullsearch {
+			if str.ToUpper(value) == text {
+				return true
+			}
+		} else {
+			// Поиск по содержимому
+			if str.Contains(str.ToUpper(value), text) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

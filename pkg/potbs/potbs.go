@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	s "strings"
+	str "strings"
 
+	"container/list"
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,17 +25,27 @@ type Config struct {
 	Debug io.Writer
 }
 
+type tDir struct {
+	Id     int
+	pos    int
+	lenght int
+}
+
 type Translate struct {
 	//err error
 
-	log        *log.Logger
-	conf       *Config
-	SourceLang string
-	TargetLang string
+	log                   *log.Logger
+	conf                  *Config
+	sourceLang            string
+	targetLang            string
+	header                map[string]int
+	moduleName            string
+	validateCheckNumeric  bool
+	validateCheckMacrosRu bool
 }
 
 // New returns a new Translate.
-func New(conf Config) (*Translate, error) {
+func New(conf Config) *Translate {
 
 	t := &Translate{conf: &conf}
 
@@ -42,21 +53,20 @@ func New(conf Config) (*Translate, error) {
 		conf.Debug = ioutil.Discard
 	}
 
+	t.header = map[string]int{
+		"id":   0,
+		"mode": 1,
+		"text": 2,
+	}
+
 	t.log = log.New(conf.Debug, "[potbs]: ", log.LstdFlags)
 
-	return t, nil
-}
+	t.moduleName = "potbs"
 
-type TData struct {
-	Id   string
-	Mode string
-	Text string
-}
+	t.validateCheckNumeric = false
+	t.validateCheckMacrosRu = true
 
-type tDir struct {
-	Id     int
-	pos    int
-	lenght int
+	return t
 }
 
 // dropCR drops a terminal \r from the data.
@@ -87,12 +97,12 @@ func scanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 
 // Поиск n-го вхождения substr в str
 // Возвращает номер позиции или -1, если такого вхождения нет.
-func indexN(str, substr string, n int) int {
+func indexN(strg, substr string, n int) int {
 
 	ind := 0
 	pos := 0
 	for i := 0; i < n; i++ {
-		ind = s.Index(str[pos:], substr)
+		ind = str.Index(strg[pos:], substr)
 		if ind == -1 {
 			return ind
 		}
@@ -105,13 +115,13 @@ func indexN(str, substr string, n int) int {
 
 func checkModeLine(line string) string {
 	switch {
-	case s.Contains(line, "ucdt"):
+	case str.Contains(line, "ucdt"):
 		return "ucdt"
-	case s.Contains(line, "ucdn"):
+	case str.Contains(line, "ucdn"):
 		return "ucdn"
-	case s.Contains(line, "mcdt"):
+	case str.Contains(line, "mcdt"):
 		return "mcdt"
-	case s.Contains(line, "mcdn"):
+	case str.Contains(line, "mcdn"):
 		return "mcdn"
 	default:
 		return ""
@@ -120,7 +130,54 @@ func checkModeLine(line string) string {
 	return ""
 
 }
-func (t *Translate) LoadFile(filepach string) ([]TData, error) {
+
+func (t *Translate) SetSourceLang(lang string) {
+	t.sourceLang = lang
+}
+
+func (t *Translate) GetSourceLang() string {
+	return t.sourceLang
+}
+
+func (t *Translate) SetTargetLang(lang string) {
+	t.targetLang = lang
+}
+func (t *Translate) GetTargetLang() string {
+	return t.targetLang
+
+}
+
+func (t *Translate) GetHeaderLen() int {
+	return len(t.header)
+}
+func (t *Translate) GetHeader() map[string]int {
+	return t.header
+}
+
+func (t *Translate) GetModuleName() string {
+	return t.moduleName
+}
+
+func (t *Translate) SetValidateCheckNumeric(toggle bool) {
+	t.validateCheckNumeric = toggle
+}
+
+func (t *Translate) SetValidateCheckMacrosRu(toggle bool) {
+	t.validateCheckMacrosRu = toggle
+}
+
+// Возвращает номер заголовка с указанным именем.
+// Если такого имени нет, вернет -1
+func (t *Translate) GetHeaderNbyName(name string) int {
+	if val, ok := t.header[name]; ok {
+		return val
+	} else {
+		return -1
+	}
+
+}
+
+func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 
 	// Входной dat файл со списком строк вида:
 	// <id>\t<вид строки>\t<строка>\r\n
@@ -130,17 +187,40 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 	// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
 	// mcdn - Пустая строка со скриптом
 
-	Data := make([]TData, 0)
+	id := t.GetHeaderNbyName("id")
+	text := t.GetHeaderNbyName("text")
+	mode := t.GetHeaderNbyName("mode")
+
+	Data := list.New()
 
 	file, err := os.Open(filepach)
 	if err != nil {
-		return nil, err
+		return list.New(), err
 	}
 	defer file.Close()
 
+	// Проверка на соответствие файла
+	firstbit := make([]byte, len(BeginByte))
+
+	_, err = file.Read(firstbit)
+	if err != nil {
+		return nil, err
+	}
+	// t.log.Println(string(BeginByte))
+	// t.log.Println(BeginByte)
+
+	// t.log.Println(string(firstbit))
+	// t.log.Println(firstbit)
+
+	if bytes.Compare(firstbit, BeginByte) != 0 {
+		return nil, fmt.Errorf("Error Load file %s. The file does not start with %s", filepach, string(BeginByte))
+	}
+
+	//Сканируем файл
 	scanner := bufio.NewScanner(file)
 
-	var line TData
+	//var line []string
+	line := make([]string, 3)
 	var lineLen int
 	var splitline []string
 
@@ -152,19 +232,21 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 	for scanner.Scan() {
 
 		// Подсчитваем длину и разбиваем строку по "\t"
-		if first {
-			// Первая строка сожержит заголовок.
-			// Пока просто отбрасываем 6 байт
-			lineall := scanner.Text()[6:]
-			splitline = s.Split(lineall, "\t")
-			lineLen = len(lineall)
-			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
-		} else {
-			splitline = s.SplitN(scanner.Text(), "\t", 3)
-			lineLen = len(scanner.Bytes())
-			//lineLen = utf8.RuneCount(scanner.Bytes())
-			t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
-		}
+
+		// Проверка не искользуется т.к. заголовок уже считали. Потом убрать
+		// if first {
+		// 	// Первая строка сожержит заголовок.
+		// 	// Пока просто отбрасываем 6 байт
+		// 	lineall := scanner.Text()[6:]
+		// 	splitline = str.Split(lineall, "\t")
+		// 	lineLen = len(lineall)
+		// 	t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
+		// } else {
+		splitline = str.SplitN(scanner.Text(), "\t", 3)
+		lineLen = len(scanner.Bytes())
+		//lineLen = utf8.RuneCount(scanner.Bytes())
+		t.log.Printf("[%d] Len: %d\t(%v)", lineN, lineLen, splitline)
+		// }
 
 		// костыль пустой строки
 		if lineLen == 0 {
@@ -177,10 +259,10 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 			chmode := checkModeLine(scanner.Text())
 			if chmode != "" {
 				t.log.Printf("Длинна строки %d, но содержит: %s", len(splitline), chmode)
-				tmpsplitline := s.SplitN(scanner.Text(), chmode, 2)
+				tmpsplitline := str.SplitN(scanner.Text(), chmode, 2)
 				splitline2 := make([]string, 3)
 				//t.log.Println(tmpsplitline)
-				splitline2[0] = s.TrimSpace(tmpsplitline[0])
+				splitline2[0] = str.TrimSpace(tmpsplitline[0])
 				splitline2[1] = chmode
 				splitline2[2] = tmpsplitline[1]
 				splitline = splitline2
@@ -196,52 +278,59 @@ func (t *Translate) LoadFile(filepach string) ([]TData, error) {
 			if _, ok := strconv.Atoi(splitline[0]); ok == nil {
 				//если только начали, то парсим дальше, если нет, заносим распарсенное
 				if first {
-					line.Id = splitline[0]
-					line.Text = ""
+					line[id] = splitline[0]
+					line[text] = ""
 					first = false
 				} else {
-					t.log.Printf("[%d] EOF id:(%s)", lineN, line.Id)
-					Data = append(Data, line)
+					t.log.Printf("[%d] EOF id:(%s)", lineN, line[id])
+					Data.PushBack(line)
+					line = make([]string, 3)
 					lineN += 1
-					line.Id = splitline[0]
-					line.Text = ""
+					line[id] = splitline[0]
+					line[text] = ""
 
 				}
-				t.log.Printf("[%d] Start\t id:(%s)", lineN, line.Id)
+				t.log.Printf("[%d] Start\t id:(%s)", lineN, line[id])
 			}
 		}
 
 		// Проверяем кол-во разделенных элементов. Должно быть 3
-		if len(splitline) >= 3 {
-			t.log.Println("mode 1 (len3)")
-			line.Mode = splitline[1]
-			line.Text = line.Text + splitline[2]
 
-		} else if len(splitline) == 2 {
+		switch {
+		case len(splitline) >= 3:
+			t.log.Println("mode 1 (len3)")
+			line[mode] = splitline[1]
+			line[text] += splitline[2]
+		case len(splitline) == 2:
 			// 2 быват при пустой строке (ucdn)
 			t.log.Println("mode 2 (len2)")
 			if len(splitline[1]) == 4 {
-				line.Mode = splitline[1]
-				line.Text = ""
+				line[mode] = splitline[1]
+				line[text] = ""
 			} else {
-				line.Text += "\n" + scanner.Text()
+				line[text] += "\n" + scanner.Text()
 			}
-		} else {
+		default:
 			// При строке с \r\n в середине
 			t.log.Println("mode 3")
 			//line.Mode = "none"
-			line.Text += "\n" + scanner.Text()
+			line[text] += "\n" + scanner.Text()
 		}
 
 	}
 
 	// Заносим последнюю строку
-	Data = append(Data, line)
+	Data.PushBack(line)
 
 	return Data, nil
 }
 
-func (t *Translate) SaveFile(filepach string, Datas []TData) error {
+func (t *Translate) SaveFile(filepach string, datas *list.List) error {
+
+	id := t.GetHeaderNbyName("id")
+	text := t.GetHeaderNbyName("text")
+	mode := t.GetHeaderNbyName("mode")
+
 	dirs := make([]tDir, 0)
 	var dir tDir
 	var linelen int
@@ -254,34 +343,39 @@ func (t *Translate) SaveFile(filepach string, Datas []TData) error {
 	}
 	defer filedat.Close()
 
-	for id, line := range Datas {
-		if id == 0 {
-			filedat.WriteString(fmt.Sprintf("%s%s\t%s\t%s\r\n", BeginByte, line.Id, line.Mode, line.Text))
+	// Iterate through list and print its contents.
+	first := true
+	for e := datas.Front(); e != nil; e = e.Next() {
+		line := e.Value.([]string)
+		t.log.Println(line)
+		if first {
+			filedat.WriteString(fmt.Sprintf("%s%s\t%s\t%s\r\n", BeginByte, line[id], line[mode], line[text]))
 			pos += 6 //BeginByte
+			first = false
 		} else {
-			filedat.WriteString(fmt.Sprintf("%s\t%s\t%s\r\n", line.Id, line.Mode, line.Text))
+			filedat.WriteString(fmt.Sprintf("%s\t%s\t%s\r\n", line[id], line[mode], line[text]))
 		}
 
-		dir.Id, _ = strconv.Atoi(line.Id)
+		dir.Id, _ = strconv.Atoi(line[id])
 		dir.pos = pos
 
 		// Расчитываем длину строки
-		linelen = len(line.Id)
+		linelen = len(line[id])
 		linelen += 1 //\t
-		linelen += len(line.Mode)
+		linelen += len(line[mode])
 		linelen += 1 //\t
 		mcdtlen := linelen
-		linelen += len(line.Text)
+		linelen += len(line[text])
 		// Ебала с размером. В позицию идет вся длинна (linelen), а в размер только длина текста (mcdtlen).
-		switch line.Mode {
+		switch line[mode] {
 		case "mcdt":
 			// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
-			ind := s.Index(line.Text, "\t")
+			ind := str.Index(line[text], "\t")
 			// -1 - не найдено
 			if ind == -1 {
 				mcdtlen = linelen
 			} else {
-				mcdtlen += len(line.Text[:ind])
+				mcdtlen += len(line[text][:ind])
 			}
 			dir.lenght = mcdtlen
 		case "mcdn":
@@ -300,7 +394,7 @@ func (t *Translate) SaveFile(filepach string, Datas []TData) error {
 
 	//Создаем dir файл
 	patch, file := filepath.Split(filepach)
-	filedir, err := os.Create(patch + s.TrimSuffix(file, filepath.Ext(file)) + ".dir")
+	filedir, err := os.Create(patch + str.TrimSuffix(file, filepath.Ext(file)) + ".dir")
 	if err != nil {
 		t.log.Println("Error save DIR file")
 		return err
@@ -311,7 +405,7 @@ func (t *Translate) SaveFile(filepach string, Datas []TData) error {
 	filedir.WriteString(fmt.Sprintf("## Count:\t%d\r\n", len(dirs)))
 	filedir.WriteString("## Game:\tPBS\r\n")
 
-	locale := langName(t.TargetLang)
+	locale := langName(t.GetTargetLang())
 	if locale != "" {
 		filedir.WriteString(fmt.Sprintf("## Locale:\t%s\r\n", locale))
 	}
@@ -332,35 +426,135 @@ func (t *Translate) SaveFile(filepach string, Datas []TData) error {
 // 	return false
 // }
 
-func ValidateTranslate(translate string) error {
+func (t *Translate) ValidateTranslate(sourceText, targetText string) []error {
+
+	var validateErr []error = nil
 
 	//Проверяем перевод макросов
-	re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
-	macros := re_macros.FindAllString(translate, -1)
-	if len(macros) != 0 {
-		for _, str := range macros {
+	if t.validateCheckMacrosRu {
+		re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
+		macros := re_macros.FindAllString(targetText, -1)
+		if len(macros) != 0 {
+			for _, str := range macros {
 
-			// True если содержит НЕ Латиницу ( https://github.com/google/re2/wiki/Syntax )
-			//match, _ := regexp.MatchString(`\P{Latin}`, str)
-			// True если содержит кирилицу
-			match, _ := regexp.MatchString(`\p{Cyrillic}`, str)
-			if match {
-				return fmt.Errorf("'%s' - Макросы не нужно переводить.", str)
+				// True если содержит НЕ Латиницу ( https://github.com/google/re2/wiki/Syntax )
+				//match, _ := regexp.MatchString(`\P{Latin}`, str)
+				// True если содержит кирилицу
+				match, _ := regexp.MatchString(`\p{Cyrillic}`, str)
+				if match {
+					validateErr = append(validateErr, fmt.Errorf("'%s' - Макросы не нужно переводить.", str))
+				}
 			}
+
 		}
-
 	}
-
 	//Проверяем наличие переносов строки
-	// if s.Contains(translate, "\n") {
+	// if s.Contains(targetText, "\n") {
 	// 	return fmt.Errorf("Замените перенос строки на символ: \\n")
 	// }
 
+	// Если какой - то из переводов пуст, дальнейшие проверки безсмысленны
+	if sourceText == "" && targetText == "" {
+		return validateErr
+	}
+
+	// Проверяем на окончание и убираем макросы
+	noMacSource, err := removeMacros(sourceText)
+	if err != nil {
+		validateErr = append(validateErr, err)
+	}
+	noMacTarget, err := removeMacros(targetText)
+	if err != nil {
+		validateErr = append(validateErr, err)
+	}
+
+	// проверка соответсвия цифровых значений (например сила удара и т.д.)
+	if t.validateCheckNumeric {
+		if noMacSource != "" && noMacTarget != "" {
+			err := validateNumeric(noMacSource, noMacTarget)
+			if err != nil {
+				validateErr = append(validateErr, err)
+			}
+		}
+	}
+
+	return validateErr
+}
+
+// проверка соответсвия цифровых значений (например сила удара и т.д.)
+func validateNumeric(sourceText, targetText string) error {
+
+	numSource := getNumericText(sourceText)
+	numTarget := getNumericText(targetText)
+
+	if numSource != "" && numTarget != "" {
+		// Чтобы не зависеть от перемены мест, берем сумму
+		if getSum(numSource) != getSum(numTarget) {
+			return fmt.Errorf("Check numerical value. (%s != %s)", numSource, numTarget)
+		}
+	}
 	return nil
 }
 
+func getNumericText(text string) string {
+	var out string
+	for _, char := range text {
+		switch string(char) {
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9", "0":
+			out += string(char)
+		}
+
+	}
+	return out
+}
+
+func getSum(text string) int {
+
+	if text == "" {
+		return 0
+	}
+
+	var out int = 0
+
+	for _, char := range text {
+		i, err := strconv.Atoi(string(char))
+		if err == nil {
+			out += i
+		}
+	}
+	return out
+}
+
+func removeMacros(text string) (string, error) {
+	// Проверка [!*!]
+	openIndx := str.Index(text, "[!")
+	//Пока мы находим в тексте начало макроса
+	for openIndx != -1 {
+		lastIndx := str.Index(text, "!]")
+		if lastIndx == -1 {
+			return "", fmt.Errorf("Not found finish macros !]")
+		}
+		text = text[:openIndx] + text[lastIndx+2:]
+		openIndx = str.Index(text, "[!")
+	}
+
+	// Проверка [:*:]
+	openIndx = str.Index(text, "[:")
+	//Пока мы находим в тексте начало макроса
+	for openIndx != -1 {
+		lastIndx := str.Index(text, ":]")
+		if lastIndx == -1 {
+			return "", fmt.Errorf("Not found finish macros :]")
+		}
+		text = text[:openIndx] + text[lastIndx+2:]
+		openIndx = str.Index(text, "[:")
+	}
+
+	return text, nil
+}
+
 func langName(lang string) string {
-	switch s.ToUpper(lang) {
+	switch str.ToUpper(lang) {
 	case "RU":
 		return "ru_RU"
 	case "EN":
