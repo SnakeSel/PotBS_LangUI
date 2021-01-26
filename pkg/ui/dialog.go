@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	dialogGlade = "data/dialog.glade"
+	dialogGlade = "data/ui/dialog.glade"
 )
 
 type DialogWindow struct {

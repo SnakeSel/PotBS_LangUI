@@ -17,7 +17,7 @@ var dialog *DialogWindow
 
 const (
 	separator = "<:>"
-	TmplGlade = "data/tmpl.glade"
+	TmplGlade = "data/ui/tmpl.glade"
 )
 
 type TTmpl struct {

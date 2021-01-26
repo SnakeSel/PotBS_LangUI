@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	settingsGlade = "data/settings.glade"
+	settingsGlade = "data/ui/settings.glade"
 )
 
 // startup id

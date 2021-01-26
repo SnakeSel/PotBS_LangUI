@@ -33,7 +33,7 @@ import (
 const (
 	version     = "20210111"
 	appId       = "snakesel.potbs-langui"
-	MainGlade   = "data/main.glade"
+	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
 	cfgFile     = "data/cfg.ini"
 	localesFile = "data/locales"

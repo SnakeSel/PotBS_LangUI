@@ -1,10 +1,17 @@
 # PotBS_LangUI
-Графическая программа для перевода языковых файлов игры "Корсары Онлайн: Pirates of the burning sea".  
-А так же других игр использующих языковые файлы Soni T4.  
+Графическая программа для перевода языковых файлов SOE T4.  
+T4 используется в играх:
+* Корсары Онлайн: Pirates of the burning sea
+* EverQuest 2
+* PlanetSide 2
+* H1Z1
+* ...
+
 Написана на [Go](https://golang.org/) с использованием [gotk3](https://github.com/gotk3/gotk3)
 * При сохранении DAT файла перевода формирует для него DIR файл.
 * Поддерживает шаблоны переводов.
 * Поддержка Google Translate.
+* Поддержка проверки перевода (Макрос закрыт, макрос не переведен...)
 ![](screen/main.png)
 ## Установка / Install
 Скачать [актуальный релиз](https://github.com/SnakeSel/PotBS_LangUI/releases)  / Download [release](https://github.com/SnakeSel/PotBS_LangUI/releases)  

@@ -6,7 +6,7 @@
     <property name="visible">True</property>
     <property name="can-focus">False</property>
     <property name="tooltip-text" translatable="yes">Translate via Google Translate</property>
-    <property name="pixbuf">icon/google-translate-icon_16.png</property>
+    <property name="pixbuf">../icon/google-translate-icon_16.png</property>
   </object>
   <object class="GtkTextBuffer" id="dialog_buffer_en"/>
   <object class="GtkTextBuffer" id="dialog_buffer_ru"/>
