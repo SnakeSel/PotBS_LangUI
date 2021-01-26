@@ -7,7 +7,7 @@ set mingw=C:\msys64\mingw64
 set sevenz="C:\Program Files\7-Zip\7z.exe"
 set builddir=%CD%\Build\%today%\%proj%
 set libdir=%builddir%
-set libs=libatk-1.0-0.dll libbz2-1.dll libcairo-2.dll libcairo-gobject-2.dll libepoxy-0.dll libexpat-1.dll libffi-6.dll libfontconfig-1.dll libfreetype-6.dll libgcc_s_seh-1.dll libgdk-3-0.dll libgdk_pixbuf-2.0-0.dll libgio-2.0-0.dll libgit2.dll libglib-2.0-0.dll libgmodule-2.0-0.dll libgobject-2.0-0.dll libgraphite2.dll libgtk-3-0.dll libharfbuzz-0.dll libiconv-2.dll libintl-8.dll libpango-1.0-0.dll libpangocairo-1.0-0.dll libpangoft2-1.0-0.dll libpangowin32-1.0-0.dll libpcre-1.dll libpixman-1-0.dll libpng16-16.dll libstdc++-6.dll libwinpthread-1.dll zlib1.dll libfribidi-0.dll libthai-0.dll libdatrie-1.dll
+set libs=libatk-1.0-0.dll libbz2-1.dll libcairo-2.dll libcairo-gobject-2.dll libepoxy-0.dll libexpat-1.dll libffi-6.dll libfontconfig-1.dll libfreetype-6.dll libgcc_s_seh-1.dll libgdk-3-0.dll libgdk_pixbuf-2.0-0.dll libgio-2.0-0.dll libgit2.dll libglib-2.0-0.dll libgmodule-2.0-0.dll libgobject-2.0-0.dll libgraphite2.dll libgtk-3-0.dll libharfbuzz-0.dll libiconv-2.dll libintl-8.dll libpango-1.0-0.dll libpangocairo-1.0-0.dll libpangoft2-1.0-0.dll libpangowin32-1.0-0.dll libpcre-1.dll libpixman-1-0.dll libpng16-16.dll libstdc++-6.dll libwinpthread-1.dll zlib1.dll libfribidi-0.dll libthai-0.dll libdatrie-1.dll libffi-7.dll libbrotlicommon.dll libbrotlidec.dll
 rem убрал: libjasper-4.dll libjpeg-8.dll
 
 echo Building ...
@@ -64,8 +64,9 @@ set adwaita_build=%builddir%\share\icons\Adwaita
 rem for  %%r in (16x16,22x22,24x24,32x32,48x48,64x64,96x96,256x256) do (
 for  %%r in (16x16,22x22,24x24,32x32,48x48) do (
 rem	md %adwaita_build%\%%r\devices
-rem	md %adwaita_build%\%%r\actions
+	md %adwaita_build%\%%r\actions
 	md %adwaita_build%\%%r\legacy
+rem        md %adwaita_build%\%%r\places
 
 rem	xcopy %adwaita%\%%r\legacy\media-floppy.png %adwaita_build%\%%r\devices\
 rem	xcopy %adwaita%\%%r\devices\media-floppy-symbolic.symbolic.png %adwaita_build%\%%r\devices\
@@ -73,6 +74,17 @@ rem	xcopy %adwaita%\%%r\devices\media-floppy-symbolic.symbolic.png %adwaita_buil
 
 rem	xcopy %adwaita%\%%r\legacy\tools-check-spelling.png %adwaita_build%\%%r\actions\
 	xcopy %adwaita%\%%r\legacy\tools-check-spelling.png %adwaita_build%\%%r\legacy\
+	xcopy %adwaita%\%%r\legacy\preferences-desktop-locale.png %adwaita_build%\%%r\legacy\
+
+	xcopy %adwaita%\%%r\legacy\document-save.png %adwaita_build%\%%r\legacy\
+	xcopy %adwaita%\%%r\legacy\document-open.png %adwaita_build%\%%r\legacy\
+	xcopy %adwaita%\%%r\legacy\applications-system.png %adwaita_build%\%%r\legacy\
+
+	xcopy %adwaita%\%%r\places\folder-open.png %adwaita_build%\%%r\legacy\
+
+	xcopy %adwaita%\%%r\actions\edit-find-symbolic.svg %adwaita_build%\%%r\actions\
+
+
 
 )
 
