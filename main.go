@@ -25,13 +25,14 @@ import (
 
 	"fmt"
 
-	"gopkg.in/ini.v1"
 	// "runtime"
 	// "runtime/pprof"
+
+	"gopkg.in/ini.v1"
 )
 
 const (
-	version     = "20210111"
+	version     = "20210126"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -262,11 +263,17 @@ func main() {
 			// TODO FIX IT!!!!
 			// т.к. ListStore.Clear() отрабатывает ОЧЕНЬ долго, пока просто создаем новый ListStore
 			// но старый список ОСТАЕТСЯ В ПАМЯТИ
-			//win.ListStore = nil
-			//win.Filter = nil
+
+			// clear curren obj
+			win.ListStore.Unref()
+			win.Filter.Unref()
+
 			win.filterChildEndIter = nil
 			win.Iterator = nil
 
+			b.Unref()
+
+			// create new obj
 			win.ListStore, err = gtk.ListStoreNew(glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING)
 			errorCheck(err)
 
@@ -289,7 +296,7 @@ func main() {
 
 			dialog.TmplList = &TmplList
 
-			// Debug: pprof.WriteHeapProfile()
+			// // Debug: pprof.WriteHeapProfile()
 			// f, _ := os.Create("./memprofile2")
 			// runtime.GC() // get up-to-date statistics
 			// pprof.Lookup("heap").WriteTo(f, 0)
@@ -393,9 +400,12 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 
 	// Получаем остальные объекты window_main
 	win.TreeView = gtkutils.GetTreeView(b, "treeview")
-	win.ListStore = gtkutils.GetListStore(b, "liststore")
+	//win.ListStore = gtkutils.GetListStore(b, "liststore")
+	win.ListStore, err = gtk.ListStoreNew(glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING)
 	win.LineSelection = gtkutils.GetTreeSelection(b, "LineSelection")
-	win.Filter = gtkutils.GetTreeModelFilter(b, "treeFilter")
+	//win.Filter = gtkutils.GetTreeModelFilter(b, "treeFilter")
+	win.Filter, _ = win.ListStore.TreeModel.FilterNew(nil)
+
 	win.Renderer_ru = gtkutils.GetCellRendererText(b, "renderer_ru")
 
 	win.Search = gtkutils.GetSearchEntry(b, "entry_search")
@@ -414,6 +424,8 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.BtnClose = gtkutils.GetButton(b, "button_close")
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
 	win.BtnDown = gtkutils.GetButton(b, "btn_down")
+
+	win.TreeView.SetModel(win.Filter.ToTreeModel())
 
 	return win
 }
