@@ -170,6 +170,6 @@ func (t *Translate) SaveFile(filepach string, datas *list.List) error {
 
 }
 
-func (t *Translate) ValidateTranslate(sourseText, targetText string) error {
+func (t *Translate) ValidateTranslate(sourseText, targetText string) []error {
 	return nil
 }

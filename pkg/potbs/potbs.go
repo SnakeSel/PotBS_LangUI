@@ -34,12 +34,14 @@ type tDir struct {
 type Translate struct {
 	//err error
 
-	log        *log.Logger
-	conf       *Config
-	sourceLang string
-	targetLang string
-	header     map[string]int
-	moduleName string
+	log                   *log.Logger
+	conf                  *Config
+	sourceLang            string
+	targetLang            string
+	header                map[string]int
+	moduleName            string
+	validateCheckNumeric  bool
+	validateCheckMacrosRu bool
 }
 
 // New returns a new Translate.
@@ -60,6 +62,9 @@ func New(conf Config) *Translate {
 	t.log = log.New(conf.Debug, "[potbs]: ", log.LstdFlags)
 
 	t.moduleName = "potbs"
+
+	t.validateCheckNumeric = false
+	t.validateCheckMacrosRu = true
 
 	return t
 }
@@ -132,11 +137,10 @@ func (t *Translate) SetSourceLang(lang string) {
 
 func (t *Translate) GetSourceLang() string {
 	return t.sourceLang
-
 }
+
 func (t *Translate) SetTargetLang(lang string) {
 	t.targetLang = lang
-
 }
 func (t *Translate) GetTargetLang() string {
 	return t.targetLang
@@ -152,6 +156,14 @@ func (t *Translate) GetHeader() map[string]int {
 
 func (t *Translate) GetModuleName() string {
 	return t.moduleName
+}
+
+func (t *Translate) SetValidateCheckNumeric(toggle bool) {
+	t.validateCheckNumeric = toggle
+}
+
+func (t *Translate) SetValidateCheckMacrosRu(toggle bool) {
+	t.validateCheckMacrosRu = toggle
 }
 
 // Возвращает номер заголовка с указанным именем.
@@ -414,51 +426,131 @@ func (t *Translate) SaveFile(filepach string, datas *list.List) error {
 // 	return false
 // }
 
-func (t *Translate) ValidateTranslate(sourceText, targetText string) error {
+func (t *Translate) ValidateTranslate(sourceText, targetText string) []error {
+
+	var validateErr []error = nil
 
 	//Проверяем перевод макросов
-	re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
-	macros := re_macros.FindAllString(targetText, -1)
-	if len(macros) != 0 {
-		for _, str := range macros {
+	if t.validateCheckMacrosRu {
+		re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
+		macros := re_macros.FindAllString(targetText, -1)
+		if len(macros) != 0 {
+			for _, str := range macros {
 
-			// True если содержит НЕ Латиницу ( https://github.com/google/re2/wiki/Syntax )
-			//match, _ := regexp.MatchString(`\P{Latin}`, str)
-			// True если содержит кирилицу
-			match, _ := regexp.MatchString(`\p{Cyrillic}`, str)
-			if match {
-				return fmt.Errorf("'%s' - Макросы не нужно переводить.", str)
+				// True если содержит НЕ Латиницу ( https://github.com/google/re2/wiki/Syntax )
+				//match, _ := regexp.MatchString(`\P{Latin}`, str)
+				// True если содержит кирилицу
+				match, _ := regexp.MatchString(`\p{Cyrillic}`, str)
+				if match {
+					validateErr = append(validateErr, fmt.Errorf("'%s' - Макросы не нужно переводить.", str))
+				}
 			}
+
 		}
-
 	}
-
 	//Проверяем наличие переносов строки
 	// if s.Contains(targetText, "\n") {
 	// 	return fmt.Errorf("Замените перенос строки на символ: \\n")
 	// }
 
-	// Проверка на Source=Target
-	if sourceText != "" && sourceText == targetText &&
-		targetText != "String ID Not Found" && targetText != ". . ." && targetText[0:1] != "/" {
-		noMacSource := removeMacros(sourceText)
-		noMacTarget := removeMacros(targetText)
-		if len(noMacTarget) > 2 && noMacSource == noMacTarget {
-			return fmt.Errorf("[warn]\tSource=Target")
+	// Если какой - то из переводов пуст, дальнейшие проверки безсмысленны
+	if sourceText == "" && targetText == "" {
+		return validateErr
+	}
+
+	// Проверяем на окончание и убираем макросы
+	noMacSource, err := removeMacros(sourceText)
+	if err != nil {
+		validateErr = append(validateErr, err)
+	}
+	noMacTarget, err := removeMacros(targetText)
+	if err != nil {
+		validateErr = append(validateErr, err)
+	}
+
+	// проверка соответсвия цифровых значений (например сила удара и т.д.)
+	if t.validateCheckNumeric {
+		if noMacSource != "" && noMacTarget != "" {
+			err := validateNumeric(noMacSource, noMacTarget)
+			if err != nil {
+				validateErr = append(validateErr, err)
+			}
 		}
 	}
 
+	return validateErr
+}
+
+// проверка соответсвия цифровых значений (например сила удара и т.д.)
+func validateNumeric(sourceText, targetText string) error {
+
+	numSource := getNumericText(sourceText)
+	numTarget := getNumericText(targetText)
+
+	if numSource != "" && numTarget != "" {
+		// Чтобы не зависеть от перемены мест, берем сумму
+		if getSum(numSource) != getSum(numTarget) {
+			return fmt.Errorf("Check numerical value. (%s != %s)", numSource, numTarget)
+		}
+	}
 	return nil
 }
-func removeMacros(text string) string {
+
+func getNumericText(text string) string {
+	var out string
+	for _, char := range text {
+		switch string(char) {
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9", "0":
+			out += string(char)
+		}
+
+	}
+	return out
+}
+
+func getSum(text string) int {
+
+	if text == "" {
+		return 0
+	}
+
+	var out int = 0
+
+	for _, char := range text {
+		i, err := strconv.Atoi(string(char))
+		if err == nil {
+			out += i
+		}
+	}
+	return out
+}
+
+func removeMacros(text string) (string, error) {
+	// Проверка [!*!]
 	openIndx := str.Index(text, "[!")
 	//Пока мы находим в тексте начало макроса
 	for openIndx != -1 {
 		lastIndx := str.Index(text, "!]")
+		if lastIndx == -1 {
+			return "", fmt.Errorf("Not found finish macros !]")
+		}
 		text = text[:openIndx] + text[lastIndx+2:]
 		openIndx = str.Index(text, "[!")
 	}
-	return text
+
+	// Проверка [:*:]
+	openIndx = str.Index(text, "[:")
+	//Пока мы находим в тексте начало макроса
+	for openIndx != -1 {
+		lastIndx := str.Index(text, ":]")
+		if lastIndx == -1 {
+			return "", fmt.Errorf("Not found finish macros :]")
+		}
+		text = text[:openIndx] + text[lastIndx+2:]
+		openIndx = str.Index(text, "[:")
+	}
+
+	return text, nil
 }
 
 func langName(lang string) string {

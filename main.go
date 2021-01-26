@@ -26,6 +26,8 @@ import (
 	"fmt"
 
 	"gopkg.in/ini.v1"
+	// "runtime"
+	// "runtime/pprof"
 )
 
 const (
@@ -55,7 +57,7 @@ type intProject interface {
 
 	GetModuleName() string
 
-	ValidateTranslate(string, string) error
+	ValidateTranslate(string, string) []error
 }
 
 // startup id
@@ -140,6 +142,7 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 	if err != nil {
 		log.Fatal("[ERR]\tUnable to add row:", err)
 	}
+
 	return err
 
 }
@@ -255,9 +258,15 @@ func main() {
 			}
 
 			//win.ListStore.Clear()
+
 			// TODO FIX IT!!!!
 			// т.к. ListStore.Clear() отрабатывает ОЧЕНЬ долго, пока просто создаем новый ListStore
 			// но старый список ОСТАЕТСЯ В ПАМЯТИ
+			//win.ListStore = nil
+			//win.Filter = nil
+			win.filterChildEndIter = nil
+			win.Iterator = nil
+
 			win.ListStore, err = gtk.ListStoreNew(glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_STRING)
 			errorCheck(err)
 
@@ -279,6 +288,12 @@ func main() {
 			TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
 
 			dialog.TmplList = &TmplList
+
+			// Debug: pprof.WriteHeapProfile()
+			// f, _ := os.Create("./memprofile2")
+			// runtime.GC() // get up-to-date statistics
+			// pprof.Lookup("heap").WriteTo(f, 0)
+			// f.Close()
 
 		})
 
@@ -657,7 +672,7 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 
 	//Выводим в таблицу
 	for _, line := range lines {
-		err := addRow(win.ListStore, line.id, line.mode, line.source, line.target)
+		err = addRow(win.ListStore, line.id, line.mode, line.source, line.target)
 		errorCheck(err)
 	}
 
@@ -665,6 +680,10 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 	if mode == -1 {
 		win.TreeView.GetColumn(columnMode).SetVisible(false)
 	}
+
+	// Data = nil
+	// DataALL = nil
+	// lines = nil
 
 	return nil
 }
@@ -999,13 +1018,13 @@ func (win *MainWindow) SaveTarget(outfile string) {
 
 		// Проверка перевода на ошибки
 
-		// Проверка на Source=Target Отключена т.к. много ложных. TODO
-		// sourceText, _ := gtkutils.GetFilterString(win.ListStore, iter, columnEN)
-		sourceText := ""
-
-		err = win.Project.ValidateTranslate(sourceText, line[text])
-		if err != nil {
-			log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
+		sourceText, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
+		//log.Printf("[%s]\n", line[id])
+		listErr := win.Project.ValidateTranslate(sourceText, line[text])
+		if listErr != nil {
+			for _, err := range listErr {
+				log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
+			}
 		}
 
 		// Добавляем Line в список

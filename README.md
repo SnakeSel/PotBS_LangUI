@@ -1,5 +1,6 @@
 # PotBS_LangUI
 Графическая программа для перевода языковых файлов игры "Корсары Онлайн: Pirates of the burning sea".  
+А так же других игр использующих языковые файлы Soni T4.  
 Написана на [Go](https://golang.org/) с использованием [gotk3](https://github.com/gotk3/gotk3)
 * При сохранении DAT файла перевода формирует для него DIR файл.
 * Поддерживает шаблоны переводов.
@@ -11,7 +12,7 @@
 - Windows: `potbs_langui.exe`
 - Linux: `./potbs_langui`
 
-## Build from sourse
+## Сборка из исходников / Build from sourse
 #### Необходимо установить пакеты разработки GTK3:
 - Windows: [msys2](https://www.gtk.org/docs/installations/windows/#using-gtk-from-msys2-packages) или [Chocolatey](https://github.com/gotk3/gotk3/wiki/Installing-on-Windows)
 - [Linux](https://github.com/gotk3/gotk3/wiki/Installing-on-Linux)
