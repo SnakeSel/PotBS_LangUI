@@ -196,10 +196,11 @@ func main() {
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
 			//"main_btn_Settings_clicked":    win.ToolBtnSettings_clicked,
-			"main_combo_filter_change":     win.ComboFilter_clicked,
-			"userfilter_activate":          win.ComboFilter_clicked,
-			"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
-			"dialog_btn_google_tr_clicked": dialog.BtnGoogleTr_clicked,
+			"main_combo_filter_change": win.ComboFilter_clicked,
+			"userfilter_activate":      win.ComboFilter_clicked,
+			//"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
+			//"dialog_btn_googletr_clicked": dialog.BtnGoogleTr_clicked,
+			//"dialog_btn_libretr_clicked":   dialog.BtnLibreTr_clicked,
 		}
 		b.ConnectSignals(signals)
 
@@ -278,7 +279,7 @@ func main() {
 			errorCheck(err)
 
 			win.Filter, _ = win.ListStore.TreeModel.FilterNew(nil)
-			win.TreeView.SetModel(win.Filter.ToTreeModel())
+			win.TreeView.SetModel(win.Filter)
 
 			// Открываем перевод
 			win.open(source, target)
@@ -319,6 +320,7 @@ func main() {
 
 		dialog.BtnTmplRun.Connect("clicked", dialog.BtnTmplRun_clicked)
 		dialog.BtnGooglTr.Connect("clicked", dialog.BtnGoogleTr_clicked)
+		dialog.BtnLibreTr.Connect("clicked", dialog.BtnLibreTr_clicked)
 
 		// ### применяем настроки
 		win.Window.Resize(cfg.Section("Main").Key("width").MustInt(600), cfg.Section("Main").Key("height").MustInt(600))
@@ -425,7 +427,7 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
 	win.BtnDown = gtkutils.GetButton(b, "btn_down")
 
-	win.TreeView.SetModel(win.Filter.ToTreeModel())
+	win.TreeView.SetModel(win.Filter)
 
 	return win
 }

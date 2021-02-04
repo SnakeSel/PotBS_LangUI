@@ -4,9 +4,10 @@ import (
 	"log"
 	str "strings"
 
-	tr "github.com/bas24/googletranslatefree"
+	gotr "github.com/bas24/googletranslatefree"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
+	libretr "github.com/snakesel/libretranslate"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
 	"github.com/snakesel/potbs_langui/pkg/tmpl"
@@ -29,6 +30,7 @@ type DialogWindow struct {
 	BtnOk      *gtk.Button
 	BtnTmplRun *gtk.Button
 	BtnGooglTr *gtk.Button
+	BtnLibreTr *gtk.Button
 
 	Label      *gtk.Label
 	SourceLang string // исходный язык для перевода
@@ -67,6 +69,7 @@ func DialogWindowNew() *DialogWindow {
 	dialog.BtnOk = gtkutils.GetButton(b, "dialog_btn_ok")
 	dialog.BtnTmplRun = gtkutils.GetButton(b, "dialog_btn_tmpl_run")
 	dialog.BtnGooglTr = gtkutils.GetButton(b, "dialog_btn_googletr")
+	dialog.BtnLibreTr = gtkutils.GetButton(b, "dialog_btn_libretr")
 
 	dialog.Label = gtkutils.GetLabel(b, "dialog_label")
 
@@ -118,9 +121,34 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 	}
 
 	// отправляем в гугл
-	res, err := tr.Translate(text, dialog.SourceLang, dialog.TargetLang)
+	res, err := gotr.Translate(text, dialog.SourceLang, dialog.TargetLang)
 	if err == nil {
 		dialog.BufferRu.SetText(res)
+	}
+}
+
+// Переводим текст через Libre Translate
+func (dialog *DialogWindow) BtnLibreTr_clicked() {
+
+	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
+	errorCheck(err)
+
+	//Если нечего переводить, выходим
+	if text == "" {
+		return
+	}
+
+	// Заменяем текст оригинала по шаблонам. Для более точного перевода
+	for _, line := range *dialog.TmplList {
+		text = str.ReplaceAll(text, line.En, line.Ru)
+	}
+
+	// переводим
+	res, err := libretr.Translate(text, str.ToLower(dialog.SourceLang), str.ToLower(dialog.TargetLang))
+	if err == nil {
+		dialog.BufferRu.SetText(res)
+	} else {
+		log.Println(err.Error())
 	}
 }
 

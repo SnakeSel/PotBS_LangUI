@@ -8,6 +8,12 @@
     <property name="tooltip-text" translatable="yes">Translate via Google Translate</property>
     <property name="pixbuf">../icon/google-translate-icon_16.png</property>
   </object>
+  <object class="GtkImage" id="LibreTranslate">
+    <property name="visible">True</property>
+    <property name="can-focus">False</property>
+    <property name="tooltip-text" translatable="yes">Translate via Libre Translate</property>
+    <property name="pixbuf">../icon/LibreTranslate_16.png</property>
+  </object>
   <object class="GtkTextBuffer" id="dialog_buffer_en"/>
   <object class="GtkTextBuffer" id="dialog_buffer_ru"/>
   <object class="GtkDialog" id="dialog_translite">
@@ -78,6 +84,7 @@
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
                 <property name="tooltip-text" translatable="yes">Заменить текст из шаблона</property>
+                <signal name="clicked" handler="dialog_btn_tmpl_run_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -86,18 +93,36 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="dialog_btn_googletr">
+              <object class="GtkButton" id="dialog_btn_libretr">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <property name="tooltip-text" translatable="yes">Translate via Google Translate</property>
-                <property name="image">GoogleTranlateImg1</property>
-                <property name="always-show-image">True</property>
+                <property name="tooltip-text" translatable="yes">Translate via Libre Translate</property>
+                <property name="margin-start">5</property>
+                <property name="image">LibreTranslate</property>
               </object>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">False</property>
                 <property name="position">2</property>
+                <property name="non-homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="dialog_btn_googletr">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Translate via Google Translate</property>
+                <property name="margin-start">5</property>
+                <property name="image">GoogleTranlateImg1</property>
+                <property name="always-show-image">True</property>
+                <signal name="clicked" handler="dialog_btn_googletr_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">3</property>
                 <property name="non-homogeneous">True</property>
               </packing>
             </child>
@@ -110,7 +135,7 @@
                 <property name="expand">False</property>
                 <property name="fill">True</property>
                 <property name="padding">10</property>
-                <property name="position">3</property>
+                <property name="position">4</property>
                 <property name="non-homogeneous">True</property>
               </packing>
             </child>
@@ -126,7 +151,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">False</property>
-                <property name="position">4</property>
+                <property name="position">5</property>
               </packing>
             </child>
             <child>
@@ -140,7 +165,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">False</property>
-                <property name="position">5</property>
+                <property name="position">6</property>
               </packing>
             </child>
           </object>

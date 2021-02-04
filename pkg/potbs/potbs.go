@@ -186,6 +186,7 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	// ucdn - пустая строка
 	// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
 	// mcdn - Пустая строка со скриптом
+	// ugdt - названия предметов?
 
 	id := t.GetHeaderNbyName("id")
 	text := t.GetHeaderNbyName("text")
