@@ -34,14 +34,13 @@ type tDir struct {
 type Translate struct {
 	//err error
 
-	log                   *log.Logger
-	conf                  *Config
-	sourceLang            string
-	targetLang            string
-	header                map[string]int
-	moduleName            string
-	validateCheckNumeric  bool
-	validateCheckMacrosRu bool
+	log            *log.Logger
+	conf           *Config
+	sourceLang     string
+	targetLang     string
+	header         map[string]int
+	moduleName     string
+	validateChecks map[string]bool
 }
 
 // New returns a new Translate.
@@ -63,8 +62,11 @@ func New(conf Config) *Translate {
 
 	t.moduleName = "potbs"
 
-	t.validateCheckNumeric = false
-	t.validateCheckMacrosRu = true
+	t.validateChecks = map[string]bool{
+		"Numeric":     false,
+		"MacrosNotRu": false,
+		//"MacrosEND":   false,
+	}
 
 	return t
 }
@@ -158,12 +160,33 @@ func (t *Translate) GetModuleName() string {
 	return t.moduleName
 }
 
-func (t *Translate) SetValidateCheckNumeric(toggle bool) {
-	t.validateCheckNumeric = toggle
+func (t *Translate) GetChecks() map[string]bool {
+	return t.validateChecks
 }
 
-func (t *Translate) SetValidateCheckMacrosRu(toggle bool) {
-	t.validateCheckMacrosRu = toggle
+func (t *Translate) SetCheckActivebyName(name string, enable bool) error {
+	if _, ok := t.validateChecks[name]; ok {
+		t.validateChecks[name] = enable
+		return nil
+	} else {
+		return fmt.Errorf("Check %s not found", name)
+	}
+
+	return nil
+}
+
+func (t *Translate) GetCheckDescriptionbyName(name string) (string, error) {
+	switch name {
+	case "Numeric":
+		return "Проверяем, чтобы сумма чисел с обеих сторон была одинакова", nil
+	case "MacrosNotRu":
+		return "Проверяем, что макросы не переведены на русский", nil
+	case "MacrosEND":
+		return "Проверяем, что макросы закрыты", nil
+	default:
+		return "", fmt.Errorf("Check %s not found", name)
+	}
+	return "", fmt.Errorf("Check %s not found", name)
 }
 
 // Возвращает номер заголовка с указанным именем.
@@ -431,8 +454,8 @@ func (t *Translate) ValidateTranslate(sourceText, targetText string) []error {
 
 	var validateErr []error = nil
 
-	//Проверяем перевод макросов
-	if t.validateCheckMacrosRu {
+	//Проверяем перевод макросов на Русский
+	if t.validateChecks["MacrosNotRu"] {
 		re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
 		macros := re_macros.FindAllString(targetText, -1)
 		if len(macros) != 0 {
@@ -455,22 +478,23 @@ func (t *Translate) ValidateTranslate(sourceText, targetText string) []error {
 	// }
 
 	// Если какой - то из переводов пуст, дальнейшие проверки безсмысленны
-	if sourceText == "" && targetText == "" {
+	if sourceText == "" || targetText == "" {
 		return validateErr
 	}
 
 	// Проверяем на окончание и убираем макросы
 	noMacSource, err := removeMacros(sourceText)
 	if err != nil {
-		validateErr = append(validateErr, err)
+		//validateErr = append(validateErr, err)
 	}
+
 	noMacTarget, err := removeMacros(targetText)
 	if err != nil {
 		validateErr = append(validateErr, err)
 	}
 
 	// проверка соответсвия цифровых значений (например сила удара и т.д.)
-	if t.validateCheckNumeric {
+	if t.validateChecks["Numeric"] {
 		if noMacSource != "" && noMacTarget != "" {
 			err := validateNumeric(noMacSource, noMacTarget)
 			if err != nil {
@@ -491,7 +515,7 @@ func validateNumeric(sourceText, targetText string) error {
 	if numSource != "" && numTarget != "" {
 		// Чтобы не зависеть от перемены мест, берем сумму
 		if getSum(numSource) != getSum(numTarget) {
-			return fmt.Errorf("Check numerical value. (%s != %s)", numSource, numTarget)
+			return fmt.Errorf("Check numerical value! %s != %s", numSource, numTarget)
 		}
 	}
 	return nil
@@ -531,11 +555,15 @@ func removeMacros(text string) (string, error) {
 	openIndx := str.Index(text, "[!")
 	//Пока мы находим в тексте начало макроса
 	for openIndx != -1 {
-		lastIndx := str.Index(text, "!]")
-		if lastIndx == -1 {
-			return "", fmt.Errorf("Not found finish macros !]")
+		endIndx := str.Index(text, "!]")
+		switch {
+		case endIndx == -1:
+			return "", fmt.Errorf("Not found END macros: ( !] )")
+		case endIndx < openIndx:
+			return "", fmt.Errorf("Not found START macros: ( [! )")
+
 		}
-		text = text[:openIndx] + text[lastIndx+2:]
+		text = text[:openIndx] + text[endIndx+2:]
 		openIndx = str.Index(text, "[!")
 	}
 
@@ -544,8 +572,12 @@ func removeMacros(text string) (string, error) {
 	//Пока мы находим в тексте начало макроса
 	for openIndx != -1 {
 		lastIndx := str.Index(text, ":]")
-		if lastIndx == -1 {
-			return "", fmt.Errorf("Not found finish macros :]")
+		switch {
+		case lastIndx == -1:
+			return "", fmt.Errorf("Not found END macros: ( :] )")
+		case lastIndx < openIndx:
+			return "", fmt.Errorf("Not found START macros: ( [: )")
+
 		}
 		text = text[:openIndx] + text[lastIndx+2:]
 		openIndx = str.Index(text, "[:")

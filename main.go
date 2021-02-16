@@ -59,6 +59,10 @@ type intProject interface {
 	GetModuleName() string
 
 	ValidateTranslate(string, string) []error
+
+	GetChecks() map[string]bool
+	SetCheckActivebyName(name string, enable bool) error
+	GetCheckDescriptionbyName(name string) (string, error)
 }
 
 // startup id
@@ -116,6 +120,7 @@ type MainWindow struct {
 	ToolBtnTmpl       *gtk.ToolButton
 	ToolBtnExportXLSX *gtk.ToolButton
 	ToolBtnImportXLSX *gtk.ToolButton
+	ToolBtnVerify     *gtk.ToolButton
 
 	Renderer_ru *gtk.CellRendererText
 
@@ -196,6 +201,7 @@ func main() {
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
 			//"main_btn_Settings_clicked":    win.ToolBtnSettings_clicked,
+			"main_btn_verify_clicked":  win.ToolBtnVerify_clicked,
 			"main_combo_filter_change": win.ComboFilter_clicked,
 			"userfilter_activate":      win.ComboFilter_clicked,
 			//"dialog_btn_tmpl_run_clicked":  dialog.BtnTmplRun_clicked,
@@ -422,6 +428,7 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.ToolBtnTmpl = gtkutils.GetToolButton(b, "tool_btn_tmpl")
 	win.ToolBtnExportXLSX = gtkutils.GetToolButton(b, "tool_btn_export_xlsx")
 	win.ToolBtnImportXLSX = gtkutils.GetToolButton(b, "tool_btn_import_xlsx")
+	win.ToolBtnVerify = gtkutils.GetToolButton(b, "tool_btn_verify")
 
 	win.BtnClose = gtkutils.GetButton(b, "button_close")
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
@@ -946,6 +953,90 @@ func (win *MainWindow) ToolBtnSettings_clicked(dialog *ui.DialogWindow) {
 	winSetings.Run()
 }
 
+// Открывает окно проверки перевода
+func (win *MainWindow) ToolBtnVerify_clicked() {
+	// Только для POTBS
+	if win.Project.GetModuleName() != "potbs" {
+		return
+	}
+
+	winVerify := ui.VerifyWindowNew()
+
+	// Получаем список проверок
+	allChecks := win.Project.GetChecks()
+	// Добавляем кнопки
+	for name, active := range allChecks {
+		label, _ := win.Project.GetCheckDescriptionbyName(name)
+		winVerify.AddCheckButton(name, label, active)
+	}
+
+	// Запуск проверки
+	winVerify.BtnVerify.Connect("clicked", func() {
+		// Применяем значения проверок
+		for name, _ := range allChecks {
+			active, err := winVerify.GetCheckButtonActive(name)
+			if err == nil {
+				win.Project.SetCheckActivebyName(name, active)
+			}
+		}
+
+		// Цикл по всем записям
+		iter, _ := win.ListStore.GetIterFirst()
+		next := true
+		for next {
+			//Получаем данные полей из ListStore
+			id, err := gtkutils.GetListStoreValueString(win.ListStore, iter, columnID)
+			errorCheck(err)
+
+			mode, err := gtkutils.GetListStoreValueString(win.ListStore, iter, columnMode)
+			errorCheck(err)
+
+			if mode == "ucdn" {
+				next = win.ListStore.IterNext(iter)
+				continue
+			}
+
+			targetText, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU)
+			sourceText, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
+
+			// Если перевода нет - пропускаем.
+			if targetText == "" || sourceText == "" {
+				next = win.ListStore.IterNext(iter)
+				continue
+			}
+
+			// Проверка перевода на ошибки
+			listErr := win.Project.ValidateTranslate(sourceText, targetText)
+			if listErr != nil {
+				for _, err := range listErr {
+					winVerify.AddRow(id, err.Error())
+				}
+			}
+
+			// к следующей записи
+			next = win.ListStore.IterNext(iter)
+
+		}
+	})
+
+	// Переход к записи с ошибкой при клике
+	winVerify.TreeView.Connect("row-activated", func() {
+
+		id := winVerify.GetSelectedID()
+		if id == "" {
+			return
+		}
+
+		patch := win.searchNext(id)
+		if patch != nil {
+			win.TreeView.SetCursor(patch, nil, false)
+		}
+	})
+
+	winVerify.Run()
+
+}
+
 // Сохраняем перевод
 func (win *MainWindow) SaveTarget(outfile string) {
 	var err error
@@ -1030,16 +1121,16 @@ func (win *MainWindow) SaveTarget(outfile string) {
 			}
 		}
 
-		// Проверка перевода на ошибки
+		// // Проверка перевода на ошибки
 
-		sourceText, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
-		//log.Printf("[%s]\n", line[id])
-		listErr := win.Project.ValidateTranslate(sourceText, line[text])
-		if listErr != nil {
-			for _, err := range listErr {
-				log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
-			}
-		}
+		// sourceText, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
+		// //log.Printf("[%s]\n", line[id])
+		// listErr := win.Project.ValidateTranslate(sourceText, line[text])
+		// if listErr != nil {
+		// 	for _, err := range listErr {
+		// 		log.Printf("[Warn]\tid[%s]: %s\n", line[id], err.Error())
+		// 	}
+		// }
 
 		// Добавляем Line в список
 		outdata.PushBack(line)

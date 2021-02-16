@@ -124,19 +124,6 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="tool_btn_settings">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">settings</property>
-                <property name="icon-name">applications-system</property>
-                <signal name="clicked" handler="main_btn_Settings_clicked" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkToolButton" id="tool_btn_tmpl">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
@@ -144,6 +131,33 @@
                 <property name="label" translatable="yes">Template</property>
                 <property name="icon-name">preferences-desktop-locale</property>
                 <signal name="clicked" handler="main_btn_tmpl_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_btn_verify">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Validate translate</property>
+                <property name="label" translatable="yes">Validate</property>
+                <property name="icon-name">emblem-default</property>
+                <signal name="clicked" handler="main_btn_verify_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_btn_settings">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">settings</property>
+                <property name="icon-name">applications-system</property>
+                <signal name="clicked" handler="main_btn_Settings_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>

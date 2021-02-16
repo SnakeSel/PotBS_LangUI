@@ -173,3 +173,15 @@ func (t *Translate) SaveFile(filepach string, datas *list.List) error {
 func (t *Translate) ValidateTranslate(sourseText, targetText string) []error {
 	return nil
 }
+
+func (t *Translate) GetChecks() map[string]bool {
+	return nil
+}
+
+func (t *Translate) SetCheckActivebyName(name string, enable bool) error {
+
+	return nil
+}
+func (t *Translate) GetCheckDescriptionbyName(name string) (string, error) {
+	return "", nil
+}
