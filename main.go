@@ -967,7 +967,7 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 	winVerify.SetLocale(win.locale)
 
 	// Задаем имя файла игнорируемых
-	winVerify.SetFileIgnoreErr("./data/ignoreErr_" + win.Project.GetSourceLang() + "_" + win.Project.GetTargetLang())
+	winVerify.SetFileIgnoreErr("data/ignoreErr_" + win.Project.GetSourceLang() + "_" + win.Project.GetTargetLang())
 
 	// Получаем список проверок
 	allChecks := win.Project.GetChecks()

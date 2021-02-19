@@ -7,6 +7,8 @@ import (
 	//"github.com/gotk3/gotk3/gdk"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -33,6 +35,7 @@ type VerifyWindow struct {
 
 	BtnVerify *gtk.Button
 	BtnExit   *gtk.Button
+	BtnSave   *gtk.Button
 
 	BtnIgnore     *gtk.ToggleButton
 	BtnShowIgnore *gtk.ToggleButton
@@ -123,6 +126,20 @@ func VerifyWindowNew() *VerifyWindow {
 		win.Filter.Refilter()
 	})
 
+	win.BtnSave, err = gtk.ButtonNewWithLabel("Save")
+	checkErr(err)
+	win.BtnSave.Connect("clicked", func() {
+		native, err := gtk.FileChooserNativeDialogNew("Select a file to save", win.Window, gtk.FILE_CHOOSER_ACTION_SAVE, "OK", "Cancel")
+		checkErr(err)
+		native.SetCurrentFolder(filepath.Dir(win.fileIgnoreErr))
+		native.SetCurrentName(filepath.Base(win.fileIgnoreErr) + "_export.txt")
+		resp := native.Run()
+
+		if resp == int(gtk.RESPONSE_ACCEPT) {
+			saveErrorstoFile(win.Filter, native.GetFilename())
+		}
+	})
+
 	// построение UI
 	scroll, err := gtk.ScrolledWindowNew(nil, nil)
 	scroll.Add(win.TreeView)
@@ -130,11 +147,13 @@ func VerifyWindowNew() *VerifyWindow {
 
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 3)
 	checkErr(err)
-	boxButtons, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
+	boxButtons, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 7)
 	checkErr(err)
 	win.boxChecks, err = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
 	checkErr(err)
 	sep, err := gtk.SeparatorNew(gtk.ORIENTATION_HORIZONTAL)
+	checkErr(err)
+	sep2, err := gtk.SeparatorNew(gtk.ORIENTATION_HORIZONTAL)
 	checkErr(err)
 
 	box.Add(win.boxChecks)
@@ -142,10 +161,11 @@ func VerifyWindowNew() *VerifyWindow {
 	box.Add(boxButtons)
 
 	// Кнопки
-	boxButtons.Add(win.BtnIgnore)
+	boxButtons.Add(win.BtnSave)
 	boxButtons.Add(win.BtnShowIgnore)
-
 	boxButtons.Add(sep)
+	boxButtons.Add(win.BtnIgnore)
+	boxButtons.Add(sep2)
 	boxButtons.Add(win.BtnVerify)
 	boxButtons.Add(win.BtnExit)
 
@@ -227,6 +247,7 @@ func (win *VerifyWindow) SetLocale(locale *locales.Printer) {
 	win.BtnExit.SetLabel(locale.Sprintf("Close"))
 	win.BtnShowIgnore.SetLabel(locale.Sprintf("Show ignored"))
 	win.BtnIgnore.SetLabel(locale.Sprintf("Ignore"))
+	win.BtnSave.SetLabel(locale.Sprintf("Save"))
 
 }
 
@@ -370,6 +391,40 @@ func saveIgnoreErrtoFile(ls *gtk.ListStore, file string) error {
 	}
 
 	return cfg.SaveTo(file)
+}
+
+// Сохраняем ошибки в файл
+func saveErrorstoFile(model *gtk.TreeModelFilter, patch string) error {
+
+	file, err := os.Create(patch)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Цикл по всем записям
+	iter, _ := model.GetIterFirst()
+	next := true
+	for next {
+		//Получаем данные полей из ListStore
+
+		id, err := gtkutils.GetFilterValueString(model, iter, COLUMN_ID)
+		if err != nil {
+			return err
+		}
+
+		errText, err := gtkutils.GetFilterValueString(model, iter, COLUMN_ERROR)
+		if err != nil {
+			return err
+		}
+
+		file.WriteString(id + "\t" + errText + "\n")
+
+		next = model.IterNext(iter)
+
+	}
+
+	return nil
 }
 
 func checkErr(e error, text_opt ...string) {
