@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	version     = "20210216"
+	version     = "20210219"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -966,6 +966,9 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 	// Переводим
 	winVerify.SetLocale(win.locale)
 
+	// Задаем имя файла игнорируемых
+	winVerify.SetFileIgnoreErr("./data/ignoreErr_" + win.Project.GetSourceLang() + "_" + win.Project.GetTargetLang())
+
 	// Получаем список проверок
 	allChecks := win.Project.GetChecks()
 	// Добавляем кнопки
@@ -1035,6 +1038,7 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 		if patch != nil {
 			win.TreeView.SetCursor(patch, nil, false)
 		}
+
 	})
 
 	winVerify.Run()

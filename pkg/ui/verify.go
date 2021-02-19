@@ -12,12 +12,14 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
+	"gopkg.in/ini.v1"
 )
 
 // IDs to access the tree view columns by
 const (
 	COLUMN_ID = iota
 	COLUMN_ERROR
+	COLUMN_IGNOR
 )
 
 type VerifyWindow struct {
@@ -25,12 +27,19 @@ type VerifyWindow struct {
 
 	TreeView  *gtk.TreeView
 	ListStore *gtk.ListStore
+	Filter    *gtk.TreeModelFilter
 
 	LineSelection *gtk.TreeSelection
 
 	BtnVerify *gtk.Button
-	//BtnNew   *gtk.Button
-	BtnExit       *gtk.Button
+	BtnExit   *gtk.Button
+
+	BtnIgnore     *gtk.ToggleButton
+	BtnShowIgnore *gtk.ToggleButton
+
+	fileIgnoreErr string
+	loaded        bool
+
 	boxChecks     *gtk.Box
 	сhecksButtons []*gtk.CheckButton
 }
@@ -57,26 +66,62 @@ func VerifyWindowNew() *VerifyWindow {
 	win.TreeView.AppendColumn(createTextColumn("Error", COLUMN_ERROR))
 	win.TreeView.SetFixedHeightMode(false) // режим фиксированной одинаковой высоты строк
 
-	win.ListStore, err = gtk.ListStoreNew(glib.TYPE_STRING, glib.TYPE_STRING)
+	win.TreeView.Connect("cursor-changed", func() {
+		if !win.loaded {
+			return
+		}
+		//	Установка кнопки в зависимости от COLUMN_IGNORE
+		rowIgnore, err := win.getSelectedIgnore()
+		if err != nil {
+			return
+		}
+
+		win.BtnIgnore.SetActive(rowIgnore)
+
+	})
+
+	win.ListStore, err = gtk.ListStoreNew(glib.TYPE_STRING, glib.TYPE_STRING, glib.TYPE_BOOLEAN)
 	checkErr(err)
 
-	win.TreeView.SetModel(win.ListStore)
+	win.Filter, _ = win.ListStore.TreeModel.FilterNew(nil)
+
+	win.TreeView.SetModel(win.Filter)
 
 	win.LineSelection, err = win.TreeView.GetSelection()
 	checkErr(err)
 	win.LineSelection.SetMode(gtk.SELECTION_SINGLE)
 
-	win.BtnExit, err = gtk.ButtonNew()
+	win.BtnExit, err = gtk.ButtonNewWithLabel("Exit")
 	checkErr(err)
-	win.BtnExit.SetLabel("Exit")
 
 	win.BtnExit.Connect("clicked", func() {
-		win.Window.Destroy()
+		if win.loaded {
+			saveIgnoreErrtoFile(win.ListStore, win.fileIgnoreErr)
+		}
+		win.Window.Close()
 	})
 
-	win.BtnVerify, err = gtk.ButtonNew()
+	win.BtnVerify, err = gtk.ButtonNewWithLabel("Verify")
 	checkErr(err)
-	win.BtnVerify.SetLabel("Verify")
+
+	win.BtnIgnore, err = gtk.ToggleButtonNewWithLabel("Ignore")
+	checkErr(err)
+
+	win.BtnIgnore.Connect("toggled", func() {
+		if win.BtnIgnore.GetActive() {
+			win.setSelectedIgnore(true)
+		} else {
+			win.setSelectedIgnore(false)
+		}
+
+	})
+
+	win.BtnShowIgnore, err = gtk.ToggleButtonNewWithLabel("Show Ignore")
+	checkErr(err)
+
+	win.BtnShowIgnore.Connect("toggled", func() {
+		win.Filter.Refilter()
+	})
 
 	// построение UI
 	scroll, err := gtk.ScrolledWindowNew(nil, nil)
@@ -85,9 +130,11 @@ func VerifyWindowNew() *VerifyWindow {
 
 	box, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 3)
 	checkErr(err)
-	boxButtons, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 3)
+	boxButtons, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
 	checkErr(err)
 	win.boxChecks, err = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	checkErr(err)
+	sep, err := gtk.SeparatorNew(gtk.ORIENTATION_HORIZONTAL)
 	checkErr(err)
 
 	box.Add(win.boxChecks)
@@ -95,19 +142,27 @@ func VerifyWindowNew() *VerifyWindow {
 	box.Add(boxButtons)
 
 	// Кнопки
+	boxButtons.Add(win.BtnIgnore)
+	boxButtons.Add(win.BtnShowIgnore)
+
+	boxButtons.Add(sep)
 	boxButtons.Add(win.BtnVerify)
-	//box2.Add(win.BtnClear)
 	boxButtons.Add(win.BtnExit)
 
 	boxButtons.SetHAlign(gtk.ALIGN_END) // расположение элементов по горизонтали
 	boxButtons.SetSpacing(10)           // интервал между элементами
 	boxButtons.SetHomogeneous(true)
 
-	win.BtnVerify.SetHAlign(gtk.ALIGN_START)
+	//win.BtnVerify.SetHAlign(gtk.ALIGN_START)
 	win.BtnExit.SetHAlign(gtk.ALIGN_END)
 	//win.BtnNew.SetVisible(false)
 
 	win.Window.Add(box)
+	win.fileIgnoreErr = "./data/checksIgnore"
+	win.loaded = false
+
+	win.Filter.SetVisibleFunc(win.funcFilter)
+	win.Filter.Refilter()
 
 	// Set the default window size.
 	win.Window.SetDefaultSize(800, 600)
@@ -152,16 +207,16 @@ func (win *VerifyWindow) GetCheckButtonActive(label string) (bool, error) {
 func (win *VerifyWindow) Run() {
 
 	// Initialize GTK without parsing any command line arguments.
-	//gtk.Init(nil)
+	gtk.Init(nil)
 
 	// Recursively show all widgets contained in this window.
 	win.Window.ShowAll()
 
-	//win.Window.SetPosition(gtk.WIN_POS_CENTER)
+	win.Window.SetPosition(gtk.WIN_POS_CENTER)
 
 	//Begin executing the GTK main loop.  This blocks until
 	//gtk.MainQuit() is run.
-	//gtk.Main()
+	gtk.Main()
 
 }
 
@@ -170,6 +225,8 @@ func (win *VerifyWindow) SetLocale(locale *locales.Printer) {
 	win.Window.SetTitle(locale.Sprintf("Checking the translation to errors"))
 	win.BtnVerify.SetLabel(locale.Sprintf("Check"))
 	win.BtnExit.SetLabel(locale.Sprintf("Close"))
+	win.BtnShowIgnore.SetLabel(locale.Sprintf("Show ignored"))
+	win.BtnIgnore.SetLabel(locale.Sprintf("Ignore"))
 
 }
 
@@ -205,6 +262,16 @@ func (win *VerifyWindow) AddRow(id, text string) error {
 		log.Fatal("[ERR]\tUnable to add row:", err)
 	}
 
+	cfg, err := ini.LooseLoad(win.fileIgnoreErr)
+	if err != nil {
+		return err
+	}
+
+	val := cfg.Section("").Key(id).String()
+	if val == text {
+		win.ListStore.SetValue(iter, COLUMN_IGNOR, true)
+	}
+	win.loaded = true
 	return err
 
 }
@@ -217,12 +284,92 @@ func (win *VerifyWindow) GetSelectedID() string {
 		return ""
 	}
 
-	id, err := gtkutils.GetListStoreValueString(win.ListStore, iter, COLUMN_ID)
+	id, err := gtkutils.GetFilterValueString(win.Filter, iter, COLUMN_ID)
 	if err != nil {
 		return ""
 	}
 
 	return id
+}
+
+// Возвращает IGNORE выбранной записи
+func (win *VerifyWindow) getSelectedIgnore() (bool, error) {
+	_, iter, ok := win.LineSelection.GetSelected()
+	if !ok {
+		return ok, fmt.Errorf("GetSelected: error iter")
+	}
+
+	return gtkutils.GetFilterValueBool(win.Filter, iter, COLUMN_IGNOR)
+}
+
+func (win *VerifyWindow) setSelectedIgnore(ignore bool) error {
+	_, iter, ok := win.LineSelection.GetSelected()
+	if !ok {
+		return fmt.Errorf("GetSelected: error iter")
+	}
+
+	return win.ListStore.SetValue(win.Filter.ConvertIterToChildIter(iter), COLUMN_IGNOR, ignore)
+}
+
+// Фильтр
+func (win *VerifyWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
+
+	if !win.BtnShowIgnore.GetActive() {
+		ignore, _ := gtkutils.GetFilterValueBool(model, iter, COLUMN_IGNOR)
+		if ignore {
+			return false
+		} else {
+			return true
+		}
+
+	}
+
+	return true
+}
+
+func (win *VerifyWindow) SetFileIgnoreErr(file string) {
+	win.fileIgnoreErr = file
+}
+
+// Сохраняем игнорируемые ошибки в файл
+func saveIgnoreErrtoFile(ls *gtk.ListStore, file string) error {
+	cfg, err := ini.LooseLoad(file)
+	if err != nil {
+		return err
+	}
+	// Цикл по всем записям
+	iter, _ := ls.GetIterFirst()
+	next := true
+	for next {
+		//Получаем данные полей из ListStore
+		ignore, err := gtkutils.GetListStoreValueBool(ls, iter, COLUMN_IGNOR)
+		if err != nil {
+			return err
+		}
+
+		// Сохраняем только игнорируемые
+		if !ignore {
+			next = ls.IterNext(iter)
+			continue
+		}
+
+		id, err := gtkutils.GetListStoreValueString(ls, iter, COLUMN_ID)
+		if err != nil {
+			return err
+		}
+
+		errText, err := gtkutils.GetListStoreValueString(ls, iter, COLUMN_ERROR)
+		if err != nil {
+			return err
+		}
+
+		cfg.Section("").Key(id).SetValue(errText)
+
+		next = ls.IterNext(iter)
+
+	}
+
+	return cfg.SaveTo(file)
 }
 
 func checkErr(e error, text_opt ...string) {

@@ -368,6 +368,19 @@ func GetFilterValueString(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column in
 	return out, err
 }
 
+// Получаем bool из столбца по итератору
+func GetFilterValueBool(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column int) (bool, error) {
+
+	value, err := fl.GetValue(iter, column)
+	if err != nil {
+		return false, err
+	}
+
+	out, err := value.GoValue()
+
+	return out.(bool), err
+}
+
 // Получаем строку из столбца по итератору
 func GetListStoreValueString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
 
@@ -383,6 +396,23 @@ func GetListStoreValueString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) 
 	out, err := value.GetString()
 
 	return out, err
+}
+
+// Получаем bool из столбца по итератору
+func GetListStoreValueBool(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (bool, error) {
+
+	if !ls.IterIsValid(iter) {
+		log.Printf("%v нот валид", iter)
+	}
+
+	value, err := ls.GetValue(iter, column)
+	if err != nil {
+		return false, err
+	}
+
+	out, err := value.GoValue()
+
+	return out.(bool), err
 }
 
 // Проверяем запись на совпадение с текстом
