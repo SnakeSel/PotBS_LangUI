@@ -40,7 +40,7 @@ type Translate struct {
 	targetLang     string
 	header         map[string]int
 	moduleName     string
-	validateChecks map[string]bool
+	validateChecks map[string]bool // вкл\откл проверок
 }
 
 // New returns a new Translate.
@@ -178,11 +178,11 @@ func (t *Translate) SetCheckActivebyName(name string, enable bool) error {
 func (t *Translate) GetCheckDescriptionbyName(name string) (string, error) {
 	switch name {
 	case "Numeric":
-		return "Проверяем, чтобы сумма чисел с обеих сторон была одинакова", nil
+		return "the sum of the numbers on both sides is the same", nil
 	case "MacrosNotRu":
-		return "Проверяем, что макросы не переведены на русский", nil
+		return "macros are not translated into Russian", nil
 	case "MacrosEND":
-		return "Проверяем, что макросы закрыты", nil
+		return "macros closed", nil
 	default:
 		return "", fmt.Errorf("Check %s not found", name)
 	}

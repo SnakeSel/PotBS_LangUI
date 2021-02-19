@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	version     = "20210126"
+	version     = "20210216"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -719,6 +719,7 @@ func (win *MainWindow) SetLocale() {
 	win.ToolBtnExportXLSX.SetLabel(win.locale.Sprintf("ExportXLSX"))
 	win.ToolBtnImportXLSX.SetLabel(win.locale.Sprintf("ImportXLSX"))
 	win.ToolBtnTmpl.SetLabel(win.locale.Sprintf("Template"))
+	win.ToolBtnVerify.SetTooltipText(win.locale.Sprintf("Checking the translation to errors"))
 	activeFilter := win.combo_filter.GetActive()
 	win.combo_filter.RemoveAll()
 	win.combo_filter.InsertText(filterALL, win.locale.Sprintf("ALL"))
@@ -960,14 +961,17 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 		return
 	}
 
+	// Создаем окно
 	winVerify := ui.VerifyWindowNew()
+	// Переводим
+	winVerify.SetLocale(win.locale)
 
 	// Получаем список проверок
 	allChecks := win.Project.GetChecks()
 	// Добавляем кнопки
 	for name, active := range allChecks {
 		label, _ := win.Project.GetCheckDescriptionbyName(name)
-		winVerify.AddCheckButton(name, label, active)
+		winVerify.AddCheckButton(name, win.locale.Sprintf(label), active)
 	}
 
 	// Запуск проверки

@@ -167,7 +167,10 @@ func (win *VerifyWindow) Run() {
 
 // Применение выбранного языка
 func (win *VerifyWindow) SetLocale(locale *locales.Printer) {
-	return
+	win.Window.SetTitle(locale.Sprintf("Checking the translation to errors"))
+	win.BtnVerify.SetLabel(locale.Sprintf("Check"))
+	win.BtnExit.SetLabel(locale.Sprintf("Close"))
+
 }
 
 // Add a column to the tree view (during the initialization of the tree view)
