@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	version     = "20210219"
+	version     = "20210223"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -979,6 +979,9 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 
 	// Запуск проверки
 	winVerify.BtnVerify.Connect("clicked", func() {
+		// очищаем список ошибок
+		winVerify.ListStore.Clear()
+
 		// Применяем значения проверок
 		for name, _ := range allChecks {
 			active, err := winVerify.GetCheckButtonActive(name)
