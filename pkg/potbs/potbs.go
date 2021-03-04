@@ -66,6 +66,7 @@ func New(conf Config) *Translate {
 		"Numeric":     false,
 		"MacrosNotRu": false,
 		//"MacrosEND":   false,
+		"comparingMacros": false,
 	}
 
 	return t
@@ -183,6 +184,8 @@ func (t *Translate) GetCheckDescriptionbyName(name string) (string, error) {
 		return "macros are not translated into Russian", nil
 	case "MacrosEND":
 		return "macros closed", nil
+	case "comparingMacros":
+		return "translation macros are the same as in the original", nil
 	default:
 		return "", fmt.Errorf("Check %s not found", name)
 	}
@@ -503,7 +506,45 @@ func (t *Translate) ValidateTranslate(sourceText, targetText string) []error {
 		}
 	}
 
+	// сравнение макросов
+	if t.validateChecks["comparingMacros"] {
+		re_macros := regexp.MustCompile(`\[\!(.+?)\!\]`)
+		macrosSource := re_macros.FindAllString(sourceText, -1)
+		macrosTarget := re_macros.FindAllString(targetText, -1)
+		var found bool
+		if len(macrosTarget) != 0 {
+			// Идем по всем макросам перевода
+			for _, macros := range macrosTarget {
+				found = false
+				// сверяем с макросами оригинала
+				for ind, m := range macrosSource {
+					// Если макросы совпдают, убираем его из исходных
+					if macros == m {
+						found = true
+						macrosSource = removeIndex(macrosSource, ind)
+						break
+					}
+				}
+				// Если не нашли, выводим сообщение
+				if !found {
+					validateErr = append(validateErr, fmt.Errorf("Макрос %s не найден в оригинале.", macros))
+				}
+
+			}
+
+			// Если после проверки остались значения в macrosSource, значит они не использовались в переводе
+			if len(macrosSource) != 0 {
+				for _, macros := range macrosSource {
+					validateErr = append(validateErr, fmt.Errorf("Макрос %s не найден в переводе.", macros))
+				}
+			}
+		}
+	}
 	return validateErr
+}
+
+func removeIndex(s []string, index int) []string {
+	return append(s[:index], s[index+1:]...)
 }
 
 // проверка соответсвия цифровых значений (например сила удара и т.д.)

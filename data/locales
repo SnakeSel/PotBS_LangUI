@@ -53,6 +53,7 @@ Show ignored = Показать игнор.
 macros are not translated into Russian = макросы не переведены на Русский
 the sum of the numbers on both sides is the same = сумма чисел с обеих сторон одинакова
 macros closed = макросы закрыты
+translation macros are the same as in the original = макросы перевода такие же, как в оригинале
 
 [en-US]
 LocaleName = English

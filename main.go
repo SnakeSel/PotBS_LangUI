@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	version     = "20210223"
+	version     = "20210304"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -971,10 +971,22 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 
 	// Получаем список проверок
 	allChecks := win.Project.GetChecks()
+
+	// Сортируем и добавляем кнопки
+	keys := make([]string, 0, len(allChecks))
+	for k := range allChecks {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	// Добавляем кнопки
-	for name, active := range allChecks {
+	// for name, active := range allChecks {
+	// 	label, _ := win.Project.GetCheckDescriptionbyName(name)
+	// 	winVerify.AddCheckButton(name, win.locale.Sprintf(label), active)
+	// }
+	for _, name := range keys {
 		label, _ := win.Project.GetCheckDescriptionbyName(name)
-		winVerify.AddCheckButton(name, win.locale.Sprintf(label), active)
+		winVerify.AddCheckButton(name, win.locale.Sprintf(label), allChecks[name])
 	}
 
 	// Запуск проверки

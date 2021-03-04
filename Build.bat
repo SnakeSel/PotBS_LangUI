@@ -84,6 +84,7 @@ rem	xcopy %adwaita%\%%r\legacy\tools-check-spelling.png %adwaita_build%\%%r\acti
 
 	xcopy %adwaita%\%%r\actions\edit-find-symbolic.svg %adwaita_build%\%%r\actions\
 
+	xcopy %adwaita%\%%r\legacy\emblem-default.png %adwaita_build%\%%r\legacy\
 
 
 )
