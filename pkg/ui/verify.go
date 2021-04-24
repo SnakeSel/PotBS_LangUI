@@ -182,6 +182,7 @@ func VerifyWindowNew() *VerifyWindow {
 	win.loaded = false
 
 	win.Filter.SetVisibleFunc(win.funcFilter)
+
 	win.Filter.Refilter()
 
 	// Set the default window size.
@@ -333,10 +334,12 @@ func (win *VerifyWindow) setSelectedIgnore(ignore bool) error {
 }
 
 // Фильтр
-func (win *VerifyWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
+func (win *VerifyWindow) funcFilter(model *gtk.TreeModel, iter *gtk.TreeIter) bool {
+
+	//gtk.TreeModelFilterVisibleFunc
 
 	if !win.BtnShowIgnore.GetActive() {
-		ignore, _ := gtkutils.GetFilterValueBool(model, iter, COLUMN_IGNOR)
+		ignore, _ := gtkutils.GetTreeModelValueBool(model, iter, COLUMN_IGNOR)
 		if ignore {
 			return false
 		} else {

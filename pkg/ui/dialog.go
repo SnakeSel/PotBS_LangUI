@@ -53,7 +53,7 @@ func DialogWindowNew() *DialogWindow {
 	dialog.Window = obj.(*gtk.Dialog)
 
 	// Перехват сигнала нажатия клавишь
-	dialog.Window.Connect("key-press-event", dialog.keyPress, nil)
+	dialog.Window.Connect("key-press-event", dialog.keyPress)
 
 	//Убираем кнопку "Закрыть(X)"
 	dialog.Window.SetDeletable(false)

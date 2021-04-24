@@ -8,7 +8,7 @@ set sevenz="C:\Program Files\7-Zip\7z.exe"
 set builddir=%CD%\Build\%today%\%proj%
 set libdir=%builddir%
 set libs=libatk-1.0-0.dll libbz2-1.dll libcairo-2.dll libcairo-gobject-2.dll libepoxy-0.dll libexpat-1.dll libffi-6.dll libfontconfig-1.dll libfreetype-6.dll libgcc_s_seh-1.dll libgdk-3-0.dll libgdk_pixbuf-2.0-0.dll libgio-2.0-0.dll libgit2.dll libglib-2.0-0.dll libgmodule-2.0-0.dll libgobject-2.0-0.dll libgraphite2.dll libgtk-3-0.dll libharfbuzz-0.dll libiconv-2.dll libintl-8.dll libpango-1.0-0.dll libpangocairo-1.0-0.dll libpangoft2-1.0-0.dll libpangowin32-1.0-0.dll libpcre-1.dll libpixman-1-0.dll libpng16-16.dll libstdc++-6.dll libwinpthread-1.dll zlib1.dll libfribidi-0.dll libthai-0.dll libdatrie-1.dll libffi-7.dll libbrotlicommon.dll libbrotlidec.dll
-rem убрал: libjasper-4.dll libjpeg-8.dll
+
 
 echo Building ...
 go build -ldflags "-H=windowsgui -s -w"
@@ -22,24 +22,21 @@ if errorlevel 0 (
 	exit /b 1
 )
 
+echo Copy  %proj%.exe...
+xcopy %proj%.exe %builddir%\
+
 echo Copy libs ...
 if not exist %libdir% (
-	 md %libdir%
+    md %libdir%
 )
+ldd %builddir%\%proj%.exe | grep '\/mingw.*\.dll' | awk '{print $3}' | xargs -I '{}' cp -v '{}' %libdir%
 
-for  %%l in (%libs%) do (
-	xcopy %mingw%\bin\%%l %libdir%
-rem	echo errorlevel %errorlevel%
-rem	if errorlevel 0 ( 
-rem		echo "%%l copy OK" 
-rem	) else (
-rem		echo "ERROR copy %%l"
-rem	)
-)
+rem for  %%l in (%libs%) do (
+rem     xcopy %mingw%\bin\%%l %libdir%
+rem )
 
 
 echo Copy Data ...
-xcopy potbs_langui.exe %builddir%
 xcopy data %builddir%\data\ /S
 
 
@@ -48,13 +45,26 @@ set confdir=%builddir%\etc\gtk-3.0
 if not exist %confdir% (
 	md %confdir%
 )
-echo [Settings] > %confdir%\settings.ini
-echo gtk-theme-name=Windows10 >> %confdir%\settings.ini
-echo gtk-font-name=Segoe UI 9 >> %confdir%\settings.ini
+rem echo [Settings]> %confdir%\settings.ini
+rem echo gtk-theme-name=Windows10>> %confdir%\settings.ini
+rem echo gtk-font-name=Segoe UI 9>> %confdir%\settings.ini
+(echo [Settings]
+echo gtk-theme-name = win32 
+echo gtk-icon-theme-name = Adwaita 
+echo gtk-xft-antialias=1
+echo gtk-xft-hinting=1
+echo gtk-xft-hintstyle=hintfull
+echo gtk-xft-rgba=rgb
+) > %confdir%\settings.ini
 
 
 echo Copy pixbuf
 xcopy %mingw%\lib\gdk-pixbuf-2.0 %builddir%\lib\gdk-pixbuf-2.0\ /S
+del /s /q /f %builddir%\lib\gdk-pixbuf-2.0\2.10.0\loaders\*.a
+rem md %builddir%\lib\gdk-pixbuf-2.0\2.10.0\loaders\
+rem xcopy %mingw%\lib\gdk-pixbuf-2.0\2.10.0\loaders.cache %builddir%\lib\gdk-pixbuf-2.0\2.10.0\
+rem xcopy %mingw%\lib\gdk-pixbuf-2.0\2.10.0\loaders\libpixbufloader-png.dll %builddir%\lib\gdk-pixbuf-2.0\2.10.0\loaders\
+rem xcopy %mingw%\lib\gdk-pixbuf-2.0\2.10.0\loaders\libpixbufloader-svg.dll %builddir%\lib\gdk-pixbuf-2.0\2.10.0\loaders\
 
 
 echo Copy Adwaita ...
@@ -82,12 +92,11 @@ rem	xcopy %adwaita%\%%r\legacy\tools-check-spelling.png %adwaita_build%\%%r\acti
 
 	xcopy %adwaita%\%%r\places\folder-open.png %adwaita_build%\%%r\legacy\
 
-	xcopy %adwaita%\%%r\actions\edit-find-symbolic.svg %adwaita_build%\%%r\actions\
-
 	xcopy %adwaita%\%%r\legacy\emblem-default.png %adwaita_build%\%%r\legacy\
 
-
 )
+md %adwaita_build%\scalable\actions
+xcopy %adwaita%\scalable\actions\edit-find-symbolic.svg %adwaita_build%\scalable\actions\
 
 (echo [Icon Theme]
 echo Name=Adwaita
@@ -111,7 +120,7 @@ echo PanelDefault=32
 echo PanelSizes=16,22,32,48,64,72,96,128
 echo. 
 echo # Directory list
-echo Directories=16x16/devices,16x16/legacy,22x22/devices,22x22/legacy,24x24/devices,24x24/legacy,32x32/devices,32x32/legacy,48x48/devices,48x48/legacy,
+echo Directories=16x16/devices,16x16/legacy,22x22/devices,22x22/legacy,24x24/devices,24x24/legacy,32x32/devices,32x32/legacy,48x48/devices,48x48/legacy,scalable/actions,
 echo. 
 echo [16x16/devices]
 echo Context=Devices
@@ -162,20 +171,29 @@ echo [48x48/legacy]
 echo Context=Legacy
 echo Size=48
 echo Type=Fixed
+echo 
+echo [scalable/actions]
+echo Context=Actions
+echo Size=16
+echo MinSize=8
+echo MaxSize=512
+echo Type=Scalable
+echo 
 ) > %adwaita_build%\index.theme
 
 
-echo Copy hicolor ...
+rem echo Copy hicolor ...
 
 
-echo Copy Win10 themas ...
-%sevenz% x "%CD%\pkg\gtk-3.20.7z" -o"%builddir%\share\themes\Windows10\gtk-3.0\"
+rem echo Copy Win10 themas ...
+rem %sevenz% x "%CD%\pkg\gtk-3.20.7z" -o"%builddir%\share\themes\Windows10\gtk-3.0\"
 
 
-echo glib-compile-schemas ...
-md %builddir%\share\glib-2.0\schemas
-cd %builddir%
-glib-compile-schemas share/glib-2.0/schemas
+rem echo glib-compile-schemas ...
+rem md %builddir%\share\glib-2.0\schemas
+rem xcopy %mingw%\share\glib-2.0\schemas\gschemas.compiled %builddir%\share\glib-2.0\schemas\
+rem cd %builddir%
+rem glib-compile-schemas share/glib-2.0/schemas
 
 echo Create Archive
 cd %builddir%\..\

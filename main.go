@@ -1,10 +1,11 @@
-// main.go
+// potbs-langui
 
 package main
 
 import (
 	"log"
 
+	libretr "github.com/snakesel/libretranslate"
 	"github.com/snakesel/potbs_langui/pkg/apkstrings"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
@@ -14,6 +15,8 @@ import (
 
 	"container/list"
 	"path/filepath"
+
+	"regexp"
 	"sort"
 	"strconv"
 	str "strings"
@@ -32,7 +35,7 @@ import (
 )
 
 const (
-	version     = "20210304"
+	version     = "20210424"
 	appId       = "snakesel.potbs-langui"
 	MainGlade   = "data/ui/main.glade"
 	tmplPatch   = "data/tmpl"
@@ -299,6 +302,14 @@ func main() {
 			dialog.TargetLang = win.Project.GetTargetLang()
 
 			// Загружаем шаблоны
+			// Имя файла шаблонов
+			switch win.Project.GetModuleName() {
+			case "potbs":
+				win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
+			case "apkstrings":
+				win.tmplFile = tmplPatch + "_apkstrings_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
+
+			}
 			TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
 
 			dialog.TmplList = &TmplList
@@ -375,6 +386,14 @@ func main() {
 		dialog.TargetLang = win.Project.GetTargetLang()
 
 		// Загружаем шаблоны
+
+		// Имя файла шаблонов
+		switch win.Project.GetModuleName() {
+		case "potbs":
+			win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
+		case "apkstrings":
+			win.tmplFile = tmplPatch + "_apkstrings_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
+		}
 		TmplList = tmpl.LoadTmplFromFile(win.tmplFile)
 
 		dialog.TmplList = &TmplList
@@ -471,44 +490,6 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 
 	}
 
-	// Загружаем язык перевода
-	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString("AUTO"))
-	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString("AUTO"))
-
-	switch win.Project.GetModuleName() {
-	case "potbs":
-		// Если SourceLang не задан в настройках, то берем из имени файла
-		// иначе проверяем из настроек
-		if win.Project.GetSourceLang() == "AUTO" {
-			win.Project.SetSourceLang(str.ToUpper(filepath.Base(win.sourceFile)[0:2]))
-		}
-
-		// Если TargetLang не задан в настройках, то берем из имени файла
-		// иначе проверяем из настроек
-		if win.Project.GetTargetLang() == "AUTO" {
-			win.Project.SetTargetLang(str.ToUpper(filepath.Base(win.targetFile)[0:2]))
-		}
-
-		win.tmplFile = tmplPatch + "_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
-	case "apkstrings":
-		if win.Project.GetSourceLang() == "AUTO" {
-			win.Project.SetSourceLang("EN")
-		}
-
-		if win.Project.GetTargetLang() == "AUTO" {
-			win.Project.SetTargetLang("RU")
-		}
-		win.tmplFile = tmplPatch + "_apkstrings_" + win.Project.GetSourceLang() + "-" + win.Project.GetTargetLang()
-
-	}
-
-	if win.Project.GetSourceLang() == "" {
-		win.Project.SetSourceLang("Source")
-	}
-	if win.Project.GetTargetLang() == "" {
-		win.Project.SetTargetLang("Target")
-	}
-
 	// Загружаем файлы перевода и выводим в таблицу
 	err = win.loadListStore(win.sourceFile, win.targetFile)
 	if err != nil {
@@ -516,6 +497,123 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 		os.Exit(1)
 	}
 
+	// Определяем язык файлов перевода
+
+	// Загружаем настройки перевода
+	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString("AUTO"))
+	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString("AUTO"))
+
+	var re = regexp.MustCompile(`[[:punct:]]`)
+
+	//Если стоит AUTO, пытаемся определить
+	if win.Project.GetSourceLang() == "AUTO" {
+		//log.Println("[DEBG]\tAUTO mode")
+		iter, _ := win.ListStore.GetIterFirst()
+		var average float32 = 0.0
+		lang := ""
+		valid := true
+		// Цикл пока уверенность в определении меньше 0.7
+		for average < 70 && valid {
+			text, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
+			if len(text) < 30 {
+				win.ListStore.IterNext(iter)
+				continue
+			}
+			//log.Println(text)
+			confid, newlang, err := libretr.Detect(re.ReplaceAllString(text, ""))
+			//confid, newlang, err := libretr.Detect(text)
+			if err != nil {
+				//Если не смогли получить, выходим
+				//log.Println("[DEBG]\tlibre detect fail")
+				average = 100
+				lang = ""
+				continue
+			}
+			//Если язык совпал, отлично
+			if lang == newlang {
+				average = (average + confid) / 2
+			} else {
+				lang = newlang
+				average = confid / 2
+			}
+			//log.Printf("[DEBG]\tSource lang: %s (%.2f) %.2f", newlang, confid, average)
+
+			valid = win.ListStore.IterNext(iter)
+
+		}
+
+		// Если не нашли язык, берем из имени файла
+		if lang == "" {
+			log.Println("[DEBG]\tSource lang from filename")
+			switch win.Project.GetModuleName() {
+			case "potbs":
+				lang = filepath.Base(win.sourceFile)[0:2]
+			}
+		}
+
+		win.Project.SetSourceLang(str.ToUpper(lang))
+	}
+
+	//Если стоит AUTO, пытаемся определить
+	if win.Project.GetTargetLang() == "AUTO" {
+		//log.Println("[DEBG]\tAUTO mode")
+		iter, _ := win.ListStore.GetIterFirst()
+		var average float32 = 0.0
+		lang := ""
+		valid := true
+		// Цикл пока уверенность в определении меньше 0.7
+		for average < 70 && valid {
+			text, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU)
+			if len(text) < 6 {
+				win.ListStore.IterNext(iter)
+				continue
+			}
+			//log.Println(text)
+			confid, newlang, err := libretr.Detect(re.ReplaceAllString(text, ""))
+			if err != nil {
+				//Если не смогли получить, выходим
+				//log.Println("[DEBG]\tlibre detect fail")
+				average = 100
+				lang = ""
+				continue
+			}
+			//Если язык совпал, отлично
+			if lang == newlang {
+				average = (average + confid) / 2
+			} else {
+				lang = newlang
+				average = confid / 2
+			}
+			//log.Printf("[DEBG]\tTarget lang: %s (%.2f) %.2f", newlang, confid, average)
+
+			valid = win.ListStore.IterNext(iter)
+
+		}
+
+		// Если не нашли язык, берем из имени файла
+		if lang == "" {
+			log.Println("[DEBG]\tTarget lang from filename")
+			switch win.Project.GetModuleName() {
+			case "potbs":
+				lang = filepath.Base(win.targetFile)[0:2]
+			}
+		}
+
+		win.Project.SetTargetLang(str.ToUpper(lang))
+	}
+
+	log.Printf("[INFO]\tSource file lang: %s\n", win.Project.GetSourceLang())
+	log.Printf("[INFO]\tTarget file lang: %s\n", win.Project.GetTargetLang())
+
+	// Если вдруг получили пустое значение
+	if win.Project.GetSourceLang() == "" {
+		win.Project.SetSourceLang("Source")
+	}
+	if win.Project.GetTargetLang() == "" {
+		win.Project.SetTargetLang("Target")
+	}
+
+	// Устанавливаем заголовки полей
 	win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
 	win.TreeView.GetColumn(columnRU).SetTitle(win.Project.GetTargetLang())
 
@@ -628,7 +726,7 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 		}
 	}
 
-	log.Printf("[INFO]\t%s успешно загружен, язык: %s", filepath.Base(sourceName), win.Project.GetSourceLang())
+	log.Printf("[INFO]\t%s успешно загружен", filepath.Base(sourceName))
 
 	// Load target file
 
@@ -662,7 +760,7 @@ func (win *MainWindow) loadListStore(sourceName, targetName string) error {
 		}
 	}
 
-	log.Printf("[INFO]\t%s успешно загружен, язык: %s", filepath.Base(targetName), win.Project.GetTargetLang())
+	log.Printf("[INFO]\t%s успешно загружен", filepath.Base(targetName))
 
 	//Сортируем
 	lines := make([]Tlang, 0, len(DataALL))
@@ -781,7 +879,7 @@ func (win *MainWindow) ToolBtnSaveAs_clicked() {
 }
 
 // Фильтр
-func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter, userData ...interface{}) bool {
+func (win *MainWindow) funcFilter(model *gtk.TreeModel, iter *gtk.TreeIter) bool {
 
 	switch win.combo_filter.GetActive() {
 	case filterALL:
@@ -797,8 +895,8 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 			win.userFilter.SetVisible(false)
 		}
 
-		textRU, _ := gtkutils.GetFilterValueString(model, iter, columnRU)
-		textEN, _ := gtkutils.GetFilterValueString(model, iter, columnEN)
+		textRU, _ := gtkutils.GetTreeModelValueString(model, iter, columnRU)
+		textEN, _ := gtkutils.GetTreeModelValueString(model, iter, columnEN)
 
 		if (textRU == "") && (textEN != "") {
 			win.filterChildEndIter = iter
@@ -812,8 +910,8 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 		}
 
 		// Фильтр записей без оригинала
-		textRU, _ := gtkutils.GetFilterValueString(model, iter, columnRU)
-		textEN, _ := gtkutils.GetFilterValueString(model, iter, columnEN)
+		textRU, _ := gtkutils.GetTreeModelValueString(model, iter, columnRU)
+		textEN, _ := gtkutils.GetTreeModelValueString(model, iter, columnEN)
 
 		if (textRU != "") && (textEN == "") {
 			win.filterChildEndIter = iter
@@ -836,8 +934,8 @@ func (win *MainWindow) funcFilter(model *gtk.TreeModelFilter, iter *gtk.TreeIter
 
 			filter = str.ToUpper(filter)
 
-			textRU, _ := gtkutils.GetFilterValueString(model, iter, columnRU)
-			textEN, _ := gtkutils.GetFilterValueString(model, iter, columnEN)
+			textRU, _ := gtkutils.GetTreeModelValueString(model, iter, columnRU)
+			textEN, _ := gtkutils.GetTreeModelValueString(model, iter, columnEN)
 
 			if str.Contains(str.ToUpper(textRU), filter) || str.Contains(str.ToUpper(textEN), filter) {
 				win.filterChildEndIter = iter

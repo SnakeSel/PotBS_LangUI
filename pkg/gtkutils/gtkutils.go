@@ -368,8 +368,34 @@ func GetFilterValueString(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column in
 	return out, err
 }
 
+// Получаем строку из столбца по итератору
+func GetTreeModelValueString(fl *gtk.TreeModel, iter *gtk.TreeIter, column int) (string, error) {
+
+	value, err := fl.GetValue(iter, column)
+	if err != nil {
+		return "", err
+	}
+
+	out, err := value.GetString()
+
+	return out, err
+}
+
 // Получаем bool из столбца по итератору
 func GetFilterValueBool(fl *gtk.TreeModelFilter, iter *gtk.TreeIter, column int) (bool, error) {
+
+	value, err := fl.GetValue(iter, column)
+	if err != nil {
+		return false, err
+	}
+
+	out, err := value.GoValue()
+
+	return out.(bool), err
+}
+
+// Получаем bool из столбца по итератору
+func GetTreeModelValueBool(fl *gtk.TreeModel, iter *gtk.TreeIter, column int) (bool, error) {
 
 	value, err := fl.GetValue(iter, column)
 	if err != nil {
