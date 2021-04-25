@@ -252,15 +252,18 @@
           <object class="GtkBox">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
+            <property name="margin-start">3</property>
+            <property name="margin-end">3</property>
+            <property name="margin-top">1</property>
+            <property name="margin-bottom">3</property>
             <property name="spacing">2</property>
             <child>
               <object class="GtkButton" id="button_close">
-                <property name="label">gtk-quit</property>
+                <property name="label">Exit</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
                 <property name="tooltip-text" translatable="yes">Exit</property>
-                <property name="use-stock">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>

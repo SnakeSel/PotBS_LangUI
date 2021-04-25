@@ -11,6 +11,7 @@ set libs=libatk-1.0-0.dll libbz2-1.dll libcairo-2.dll libcairo-gobject-2.dll lib
 
 
 echo Building ...
+set GO111MODULE=off
 go build -ldflags "-H=windowsgui -s -w"
 rem go build
 
@@ -94,9 +95,14 @@ rem	xcopy %adwaita%\%%r\legacy\tools-check-spelling.png %adwaita_build%\%%r\acti
 
 	xcopy %adwaita%\%%r\legacy\emblem-default.png %adwaita_build%\%%r\legacy\
 
+	xcopy %adwaita%\%%r\actions\edit-find-symbolic.symbolic.png %adwaita_build%\%%r\actions\
+	xcopy %adwaita%\%%r\actions\go-down-symbolic.symbolic.png %adwaita_build%\%%r\actions\
+	xcopy %adwaita%\%%r\actions\go-up-symbolic.symbolic.png %adwaita_build%\%%r\actions\
+
+
 )
-md %adwaita_build%\scalable\actions
-xcopy %adwaita%\scalable\actions\edit-find-symbolic.svg %adwaita_build%\scalable\actions\
+rem md %adwaita_build%\scalable\actions
+rem xcopy %adwaita%\scalable\actions\edit-find-symbolic.svg %adwaita_build%\scalable\actions\
 
 (echo [Icon Theme]
 echo Name=Adwaita
@@ -120,7 +126,12 @@ echo PanelDefault=32
 echo PanelSizes=16,22,32,48,64,72,96,128
 echo. 
 echo # Directory list
-echo Directories=16x16/devices,16x16/legacy,22x22/devices,22x22/legacy,24x24/devices,24x24/legacy,32x32/devices,32x32/legacy,48x48/devices,48x48/legacy,scalable/actions,
+echo Directories=16x16/actions,16x16/devices,16x16/legacy,22x22/actions,22x22/devices,22x22/legacy,24x24/actions,24x24/devices,24x24/legacy,32x32/actions,32x32/devices,32x32/legacy,48x48/actions,48x48/devices,48x48/legacy,scalable/actions,
+echo. 
+echo [16x16/actions]
+echo Context=Actions
+echo Size=16
+echo Type=Fixed
 echo. 
 echo [16x16/devices]
 echo Context=Devices
@@ -130,6 +141,11 @@ echo.
 echo [16x16/legacy]
 echo Context=Legacy
 echo Size=16
+echo Type=Fixed
+echo. 
+echo [22x2/actions]
+echo Context=Actions
+echo Size=22
 echo Type=Fixed
 echo. 
 echo [22x22/devices]
@@ -142,6 +158,11 @@ echo Context=Legacy
 echo Size=22
 echo Type=Fixed
 echo. 
+echo [24x24/actions]
+echo Context=Actions
+echo Size=24
+echo Type=Fixed
+echo. 
 echo [24x24/devices]
 echo Context=Devices
 echo Size=24
@@ -150,6 +171,11 @@ echo.
 echo [24x24/legacy]
 echo Context=Legacy
 echo Size=24
+echo Type=Fixed
+echo. 
+echo [32x32/actions]
+echo Context=Actions
+echo Size=32
 echo Type=Fixed
 echo. 
 echo [32x32/devices]
@@ -162,6 +188,11 @@ echo Context=Legacy
 echo Size=32
 echo Type=Fixed
 echo. 
+echo [48x48/actions]
+echo Context=Actions
+echo Size=48
+echo Type=Fixed
+echo. 
 echo [48x48/devices]
 echo Context=Devices
 echo Size=48
@@ -171,18 +202,15 @@ echo [48x48/legacy]
 echo Context=Legacy
 echo Size=48
 echo Type=Fixed
-echo 
+echo. 
 echo [scalable/actions]
 echo Context=Actions
 echo Size=16
 echo MinSize=8
 echo MaxSize=512
 echo Type=Scalable
-echo 
+echo. 
 ) > %adwaita_build%\index.theme
-
-
-rem echo Copy hicolor ...
 
 
 rem echo Copy Win10 themas ...
@@ -194,6 +222,11 @@ rem md %builddir%\share\glib-2.0\schemas
 rem xcopy %mingw%\share\glib-2.0\schemas\gschemas.compiled %builddir%\share\glib-2.0\schemas\
 rem cd %builddir%
 rem glib-compile-schemas share/glib-2.0/schemas
+
+echo Create Run_Dark.bat
+(echo set GTK_THEME=Adwaita:dark
+echo start "" %proj%.exe
+) > %builddir%\Run_Dark.bat
 
 echo Create Archive
 cd %builddir%\..\
