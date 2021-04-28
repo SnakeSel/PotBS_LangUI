@@ -8,7 +8,7 @@ import (
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
-	"github.com/tealeg/xlsx"
+	"github.com/tealeg/xlsx/v3"
 )
 
 func (win *MainWindow) ToolBtnExportXLSX_clicked() {

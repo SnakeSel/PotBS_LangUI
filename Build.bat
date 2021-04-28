@@ -11,7 +11,7 @@ set libs=libatk-1.0-0.dll libbz2-1.dll libcairo-2.dll libcairo-gobject-2.dll lib
 
 
 echo Building ...
-set GO111MODULE=off
+rem set GO111MODULE=off
 go build -ldflags "-H=windowsgui -s -w"
 rem go build
 
