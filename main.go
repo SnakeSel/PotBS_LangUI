@@ -35,12 +35,13 @@ import (
 )
 
 const (
-	version     = "20210424"
-	appId       = "snakesel.potbs-langui"
-	MainGlade   = "data/ui/main.glade"
-	tmplPatch   = "data/tmpl"
-	cfgFile     = "data/cfg.ini"
-	localesFile = "data/locales"
+	version      = "20210429"
+	appId        = "snakesel.potbs-langui"
+	MainGlade    = "data/ui/main.glade"
+	tmplPatch    = "data/tmpl"
+	cfgFile      = "data/cfg.ini"
+	localesFile  = "data/locales"
+	helpFilesDir = "data/help"
 )
 
 var TmplList []tmpl.TTmpl
@@ -124,6 +125,7 @@ type MainWindow struct {
 	ToolBtnExportXLSX *gtk.ToolButton
 	ToolBtnImportXLSX *gtk.ToolButton
 	ToolBtnVerify     *gtk.ToolButton
+	ToolBtnHelp       *gtk.ToolButton
 
 	Renderer_ru *gtk.CellRendererText
 
@@ -204,6 +206,7 @@ func main() {
 			"main_btn_import_xlsx_clicked": win.ToolBtnImportXLSX_clicked,
 			"main_btn_tmpl_clicked":        win.ToolBtnTmpl_clicked,
 			//"main_btn_Settings_clicked":    win.ToolBtnSettings_clicked,
+			"main_btn_help_clicked":    win.ToolBtnHelp_clicked,
 			"main_btn_verify_clicked":  win.ToolBtnVerify_clicked,
 			"main_combo_filter_change": win.ComboFilter_clicked,
 			"userfilter_activate":      win.ComboFilter_clicked,
@@ -448,6 +451,7 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	win.ToolBtnExportXLSX = gtkutils.GetToolButton(b, "tool_btn_export_xlsx")
 	win.ToolBtnImportXLSX = gtkutils.GetToolButton(b, "tool_btn_import_xlsx")
 	win.ToolBtnVerify = gtkutils.GetToolButton(b, "tool_btn_verify")
+	win.ToolBtnHelp = gtkutils.GetToolButton(b, "tool_btn_help")
 
 	win.BtnClose = gtkutils.GetButton(b, "button_close")
 	win.BtnUp = gtkutils.GetButton(b, "btn_up")
@@ -1053,6 +1057,21 @@ func (win *MainWindow) ToolBtnSettings_clicked(dialog *ui.DialogWindow) {
 	})
 
 	winSetings.Run()
+}
+
+// Открывает окно справки
+func (win *MainWindow) ToolBtnHelp_clicked() {
+	winHelp := ui.HelpWindowNew()
+
+	helpFileName := fmt.Sprintf("%s_%s", win.Project.GetModuleName(), cfg.Section("Main").Key("Language").MustString("en-US"))
+	err := winHelp.LoadHelpFile(filepath.Join(helpFilesDir, helpFileName))
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("[DBG]\tHelp file \"%s\" not found", filepath.Join(helpFilesDir, helpFileName))
+		}
+		return
+	}
+	winHelp.Run()
 }
 
 // Открывает окно проверки перевода

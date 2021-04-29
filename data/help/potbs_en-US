@@ -1,0 +1,36 @@
+### Translation Notes:
+* If you need to switch to a new input inside the translation, write `\n`.
+  Example: `Using the wheel\nto zoom in\nand further away`.
+* In `[! ... !]` macros are specified. You do not need to translate them.
+* To capitalize the word, wrap it in the macro `#cap()`
+* Please report errors in Discord: `SnakeSel#3818` or email: `snake.sel@gmail.com`
+
+
+#### Translation by gender
+Indicated with:
+* General: *#m("...")* and *#f("...")*
+* Speaker gender: *#ms()* and *#fs()*
+* Gender of the interlocutor: *#ml()* and *#fl()*
+Example: `Wie könnt Ihr es wagen, mich #ms("einen Lügner")#fs("eine Lügnerin") zu nennen?! Ruft Eure Freunde nur herbei, dann werde ich dafür sorgen, dass Ihr #ml("der")#fl("die") Erste seid, #ml("der")#fl("die") stirbt.`
+
+#### Declination by cases
+The game uses the following cases: 
+
+| Name 			| In translation	| In a macro 	|
+| -----------------------	| -----------------------	| ----------------	|
+| Nominativus	| {nm}       		| #nom()    	|
+| Genetivus 		| {gs=""}    		| #gen()    	|
+| Dativus			| {ds=""}    		| #dat()    	|
+| Accusativus		| {as=""}    		| #acc()    	|
+| Instrumentalis	| {is=""}    		| #inst()   	|
+|				| {ps=""}    		| #prep()   	|
+
+For declension by cases, you must first translate the word indicating the cases, and then use the macro responsible for the word indicating the case. 
+
+1. We translate the word. The most difficult thing is to find the word for which the required macro is responsible. Only by typing. 
+For case declension use: *{nm}..{gs="..", ds="..", as="..", is="..", ps=".."}*
+  Пример: `{nm}здоровье{gs="здоровья", ds="здоровью", as="здоровья", is="здоровьем", ps="здоровье"}`
+If the word is not declined, but the case is used in the macro (for other words), then before the word you need to put  *{nmx}* or *{nfx}*
+  Пример: `{nmx}Аледо`
+2. To use the required case, we "wrap" the macro in the required case : *#nom(), #gen(), #dat(), #acc(), #inst(), #prep()*
+  Пример: `[!ATTACKER!] бьет #acc([!TARGET!]), нанося [!DAMAGE!]  ед. урона #dat([!DAMAGE_TYPE!]).`

@@ -28,9 +28,15 @@ T4 используется в играх:
 - [Linux](https://github.com/gotk3/gotk3/wiki/Installing-on-Linux)
 
 #### Загружаем исходный код PotBS_LangUI:
+Последний стабильный тег:
 ```sh
-$ go get github.com/snakesel/potbs_langui/
+$ go get github.com/snakesel/potbs_langui
 ```
+или последний коммит ветки:
+```sh
+$ go get github.com/snakesel/potbs_langui@master
+```
+
 #### Переходим в директорию PotBS_LangUI:
 ```sh
 $ cd $GOPATH/src/github.com/snakesel/potbs_langui/
