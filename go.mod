@@ -9,7 +9,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/snakesel/libretranslate v0.0.0-20210304145744-bc4a3b975438
 	github.com/stretchr/testify v1.7.0 // indirect
-	github.com/tealeg/xlsx/v3 v3.2.0
+	github.com/tealeg/xlsx/v3 v3.2.3
 	golang.org/x/text v0.3.6
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect

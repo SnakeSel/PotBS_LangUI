@@ -90,12 +90,15 @@ rem	xcopy %adwaita%\%%r\legacy\tools-check-spelling.png %adwaita_build%\%%r\acti
 	xcopy %adwaita%\%%r\legacy\document-save.png %adwaita_build%\%%r\legacy\
 	xcopy %adwaita%\%%r\legacy\document-open.png %adwaita_build%\%%r\legacy\
 	xcopy %adwaita%\%%r\legacy\applications-system.png %adwaita_build%\%%r\legacy\
+	xcopy %adwaita%\%%r\legacy\help-faq.png %adwaita_build%\%%r\legacy\
 
 	xcopy %adwaita%\%%r\places\folder-open.png %adwaita_build%\%%r\legacy\
 
 	xcopy %adwaita%\%%r\legacy\emblem-default.png %adwaita_build%\%%r\legacy\
 
 	xcopy %adwaita%\%%r\actions\edit-find-symbolic.symbolic.png %adwaita_build%\%%r\actions\
+	xcopy %adwaita%\%%r\actions\edit-clear-symbolic.symbolic.png %adwaita_build%\%%r\actions\
+
 	xcopy %adwaita%\%%r\actions\go-down-symbolic.symbolic.png %adwaita_build%\%%r\actions\
 	xcopy %adwaita%\%%r\actions\go-up-symbolic.symbolic.png %adwaita_build%\%%r\actions\
 
