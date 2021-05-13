@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	version      = "20210429"
+	version      = "20210513"
 	appId        = "snakesel.potbs-langui"
 	MainGlade    = "data/ui/main.glade"
 	tmplPatch    = "data/tmpl"
@@ -509,6 +509,7 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 
 	var re = regexp.MustCompile(`[[:punct:]]`)
 
+	libre := libretr.New(libretr.Config{Key: "1"})
 	//Если стоит AUTO, пытаемся определить
 	if win.Project.GetSourceLang() == "AUTO" {
 		//log.Println("[DEBG]\tAUTO mode")
@@ -524,8 +525,8 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 				continue
 			}
 			//log.Println(text)
-			confid, newlang, err := libretr.Detect(re.ReplaceAllString(text, ""))
-			//confid, newlang, err := libretr.Detect(text)
+			confid, newlang, err := libre.Detect(re.ReplaceAllString(text, ""))
+			//confid, newlang, err := libre.Detect(text)
 			if err != nil {
 				//Если не смогли получить, выходим
 				//log.Println("[DEBG]\tlibre detect fail")
@@ -573,7 +574,7 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 				continue
 			}
 			//log.Println(text)
-			confid, newlang, err := libretr.Detect(re.ReplaceAllString(text, ""))
+			confid, newlang, err := libre.Detect(re.ReplaceAllString(text, ""))
 			if err != nil {
 				//Если не смогли получить, выходим
 				//log.Println("[DEBG]\tlibre detect fail")

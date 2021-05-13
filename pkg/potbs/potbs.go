@@ -58,7 +58,7 @@ func New(conf Config) *Translate {
 		"text": 2,
 	}
 
-	t.log = log.New(conf.Debug, "[potbs]: ", log.LstdFlags)
+	t.log = log.New(conf.Debug, "[potbs]\t", log.LstdFlags)
 
 	t.moduleName = "potbs"
 

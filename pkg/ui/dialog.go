@@ -129,6 +129,7 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 
 // Переводим текст через Libre Translate
 func (dialog *DialogWindow) BtnLibreTr_clicked() {
+	libre := libretr.New(libretr.Config{Key: "111"})
 
 	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
 	errorCheck(err)
@@ -144,7 +145,7 @@ func (dialog *DialogWindow) BtnLibreTr_clicked() {
 	}
 
 	// переводим
-	res, err := libretr.Translate(text, str.ToLower(dialog.SourceLang), str.ToLower(dialog.TargetLang))
+	res, err := libre.Translate(text, str.ToLower(dialog.SourceLang), str.ToLower(dialog.TargetLang))
 	if err == nil {
 		dialog.BufferRu.SetText(res)
 	} else {
