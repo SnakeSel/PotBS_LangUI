@@ -5,7 +5,7 @@ package main
 import (
 	"log"
 
-	libretr "github.com/snakesel/libretranslate"
+	ms "github.com/snakesel/mstranslator"
 	"github.com/snakesel/potbs_langui/pkg/apkstrings"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	version      = "20210513"
+	version      = "20210531"
 	appId        = "snakesel.potbs-langui"
 	MainGlade    = "data/ui/main.glade"
 	tmplPatch    = "data/tmpl"
@@ -341,6 +341,8 @@ func main() {
 		dialog.BtnTmplRun.Connect("clicked", dialog.BtnTmplRun_clicked)
 		dialog.BtnGooglTr.Connect("clicked", dialog.BtnGoogleTr_clicked)
 		dialog.BtnLibreTr.Connect("clicked", dialog.BtnLibreTr_clicked)
+		// Задать KEY и REGION для MS Translator
+		dialog.SetMSTranslatorKey(MSkey, MSregion)
 
 		// ### применяем настроки
 		win.Window.Resize(cfg.Section("Main").Key("width").MustInt(600), cfg.Section("Main").Key("height").MustInt(600))
@@ -462,6 +464,59 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 	return win
 }
 
+// Получить язык текста строк в столбце column
+func getListStoreColumnLanguage(listStore *gtk.ListStore, column int) (string, error) {
+
+	translate := ms.New(
+		ms.Config{
+			Key:    MSkey,
+			Region: MSregion,
+		})
+
+	var re = regexp.MustCompile(`[[:punct:]]`)
+	var average float32 = 0.0
+	lang := ""
+	iter, ok := listStore.GetIterFirst()
+	if !ok {
+		return "", fmt.Errorf("Error GetIterFirs")
+	}
+
+	// Цикл пока уверенность в определении меньше 1 (первой 1 не верим))
+	for average < 1.0 && listStore.IterNext(iter) {
+		text, err := gtkutils.GetListStoreValueString(listStore, iter, column)
+		if err != nil {
+			return "", fmt.Errorf("Error GetListStoreValueString: %s", err.Error())
+		}
+		// Убираем из строки [: :]
+		reText := re.ReplaceAllString(text, "")
+		// Если строка короткая, большпя вероятность ошибки, пропускаем ее
+		if len(reText) < 30 {
+			listStore.IterNext(iter)
+			continue
+		}
+		//log.Println(reText)
+		// Определяем язык текста
+		score, newlang, err := translate.Detect(reText)
+		if err != nil {
+			//Если не смогли получить, выходим
+			return "", fmt.Errorf("Error Detect Language")
+		}
+
+		//Если язык совпал, отлично
+		if lang == newlang {
+			average = average + (score / 3)
+		} else {
+			lang = newlang
+			average = score / 3
+		}
+		log.Printf("[DEBG]\tlang: %s %.2f avg:(%.2f)", newlang, score, average)
+
+	}
+
+	log.Printf("[DEBG]\tResult lang: %s avg:(%.2f)", lang, average)
+	return lang, nil
+}
+
 // Открываем перевод
 func (win *MainWindow) open(sourceFile, targetFile string) {
 	var fileExt string
@@ -507,48 +562,14 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString("AUTO"))
 	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString("AUTO"))
 
-	var re = regexp.MustCompile(`[[:punct:]]`)
-
-	libre := libretr.New(libretr.Config{Key: "1"})
 	//Если стоит AUTO, пытаемся определить
 	if win.Project.GetSourceLang() == "AUTO" {
 		//log.Println("[DEBG]\tAUTO mode")
-		iter, _ := win.ListStore.GetIterFirst()
-		var average float32 = 0.0
-		lang := ""
-		valid := true
-		// Цикл пока уверенность в определении меньше 0.7
-		for average < 70 && valid {
-			text, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnEN)
-			if len(text) < 30 {
-				win.ListStore.IterNext(iter)
-				continue
-			}
-			//log.Println(text)
-			confid, newlang, err := libre.Detect(re.ReplaceAllString(text, ""))
-			//confid, newlang, err := libre.Detect(text)
-			if err != nil {
-				//Если не смогли получить, выходим
-				//log.Println("[DEBG]\tlibre detect fail")
-				average = 100
-				lang = ""
-				continue
-			}
-			//Если язык совпал, отлично
-			if lang == newlang {
-				average = (average + confid) / 2
-			} else {
-				lang = newlang
-				average = confid / 2
-			}
-			//log.Printf("[DEBG]\tSource lang: %s (%.2f) %.2f", newlang, confid, average)
 
-			valid = win.ListStore.IterNext(iter)
+		lang, err := getListStoreColumnLanguage(win.ListStore, columnEN)
 
-		}
-
-		// Если не нашли язык, берем из имени файла
-		if lang == "" {
+		// Если не нашли язык, берем из имени файла (только для potbs)
+		if err != nil {
 			log.Println("[DEBG]\tSource lang from filename")
 			switch win.Project.GetModuleName() {
 			case "potbs":
@@ -561,42 +582,10 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 
 	//Если стоит AUTO, пытаемся определить
 	if win.Project.GetTargetLang() == "AUTO" {
-		//log.Println("[DEBG]\tAUTO mode")
-		iter, _ := win.ListStore.GetIterFirst()
-		var average float32 = 0.0
-		lang := ""
-		valid := true
-		// Цикл пока уверенность в определении меньше 0.7
-		for average < 70 && valid {
-			text, _ := gtkutils.GetListStoreValueString(win.ListStore, iter, columnRU)
-			if len(text) < 6 {
-				win.ListStore.IterNext(iter)
-				continue
-			}
-			//log.Println(text)
-			confid, newlang, err := libre.Detect(re.ReplaceAllString(text, ""))
-			if err != nil {
-				//Если не смогли получить, выходим
-				//log.Println("[DEBG]\tlibre detect fail")
-				average = 100
-				lang = ""
-				continue
-			}
-			//Если язык совпал, отлично
-			if lang == newlang {
-				average = (average + confid) / 2
-			} else {
-				lang = newlang
-				average = confid / 2
-			}
-			//log.Printf("[DEBG]\tTarget lang: %s (%.2f) %.2f", newlang, confid, average)
+		lang, err := getListStoreColumnLanguage(win.ListStore, columnRU)
 
-			valid = win.ListStore.IterNext(iter)
-
-		}
-
-		// Если не нашли язык, берем из имени файла
-		if lang == "" {
+		// Если не нашли язык, берем из имени файла(только для potbs)
+		if err != nil {
 			log.Println("[DEBG]\tTarget lang from filename")
 			switch win.Project.GetModuleName() {
 			case "potbs":

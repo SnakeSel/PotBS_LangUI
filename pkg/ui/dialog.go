@@ -7,7 +7,7 @@ import (
 	gotr "github.com/bas24/googletranslatefree"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
-	libretr "github.com/snakesel/libretranslate"
+	ms "github.com/snakesel/mstranslator"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
 	"github.com/snakesel/potbs_langui/pkg/tmpl"
@@ -37,6 +37,9 @@ type DialogWindow struct {
 	TargetLang string // на какой будем переводить
 
 	TmplList *[]tmpl.TTmpl
+
+	mskey    string
+	msregion string
 }
 
 // Окно диалога
@@ -127,9 +130,13 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 	}
 }
 
-// Переводим текст через Libre Translate
+// Переводим текст через MS Translator
 func (dialog *DialogWindow) BtnLibreTr_clicked() {
-	libre := libretr.New(libretr.Config{Key: "111"})
+	tranlate := ms.New(
+		ms.Config{
+			Key:    dialog.mskey,
+			Region: dialog.msregion,
+		})
 
 	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
 	errorCheck(err)
@@ -145,7 +152,7 @@ func (dialog *DialogWindow) BtnLibreTr_clicked() {
 	}
 
 	// переводим
-	res, err := libre.Translate(text, str.ToLower(dialog.SourceLang), str.ToLower(dialog.TargetLang))
+	res, err := tranlate.Translate(text, str.ToLower(dialog.SourceLang), str.ToLower(dialog.TargetLang))
 	if err == nil {
 		dialog.BufferRu.SetText(res)
 	} else {
@@ -158,6 +165,14 @@ func (dialog *DialogWindow) SetLocale(locale *locales.Printer) {
 	dialog.Window.SetTitle(locale.Sprintf("DialogTitle"))
 	dialog.BtnTmplRun.SetLabel(locale.Sprintf("from template"))
 	dialog.BtnGooglTr.SetTooltipText(locale.Sprintf("Translate via Google Translate"))
+
+}
+
+// Задать KEY и REGION для MS Translator
+func (dialog *DialogWindow) SetMSTranslatorKey(key, region string) {
+
+	dialog.mskey = key
+	dialog.msregion = region
 
 }
 
