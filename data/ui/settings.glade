@@ -191,7 +191,9 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">start</property>
-                        <property name="label" translatable="yes">Translation language. Affects Google Translate</property>
+                        <property name="label" translatable="yes">Translation language. Affects online translators.
+AUTO - defines the MS Tranlator service.
+FILE - is determined from the first letters of the file name.</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -222,6 +224,7 @@
                             <property name="active">0</property>
                             <items>
                               <item id="AUTO" translatable="yes">AUTO</item>
+                              <item id="FILE" translatable="yes">FILE</item>
                               <item id="RU" translatable="yes">RU</item>
                               <item id="EN" translatable="yes">EN</item>
                               <item id="DE" translatable="yes">DE</item>
@@ -266,6 +269,7 @@
                             <property name="active">0</property>
                             <items>
                               <item id="AUTO" translatable="yes">AUTO</item>
+                              <item id="FILE" translatable="yes">FILE</item>
                               <item id="RU" translatable="yes">RU</item>
                               <item id="EN" translatable="yes">EN</item>
                               <item id="DE" translatable="yes">DE</item>

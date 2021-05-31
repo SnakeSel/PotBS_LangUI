@@ -155,7 +155,7 @@ func (win *SettingsWindow) SetLocale(locale *locales.Printer) {
 	win.CheckBtnLog.SetLabel(locale.Sprintf("Save log file"))
 	win.LblLogFile.SetLabel(locale.Sprintf("Log file") + ":")
 
-	win.LblProjLang.SetLabel(locale.Sprintf("SettingProjLang"))
+	win.LblProjLang.SetLabel(locale.Sprintf("SettingProjLang") + "\n" + locale.Sprintf("SettingProjLangAuto") + "\n" + locale.Sprintf("SettingProjLangFile"))
 	win.LblSourceLang.SetLabel(locale.Sprintf("Source Lang") + ":")
 	win.LblTargetLang.SetLabel(locale.Sprintf("Target Lang") + ":")
 

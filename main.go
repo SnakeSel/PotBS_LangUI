@@ -509,11 +509,11 @@ func getListStoreColumnLanguage(listStore *gtk.ListStore, column int) (string, e
 			lang = newlang
 			average = score / 3
 		}
-		log.Printf("[DEBG]\tlang: %s %.2f avg:(%.2f)", newlang, score, average)
+		//log.Printf("[DEBG]\tlang: %s %.2f avg:(%.2f)", newlang, score, average)
 
 	}
 
-	log.Printf("[DEBG]\tResult lang: %s avg:(%.2f)", lang, average)
+	//log.Printf("[DEBG]\tResult lang: %s avg:(%.2f)", lang, average)
 	return lang, nil
 }
 
@@ -556,56 +556,73 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 		os.Exit(1)
 	}
 
-	// Определяем язык файлов перевода
+	// Определяем Source Lang
+	lang := cfg.Section("Project").Key("SourceLang").MustString("AUTO")
 
-	// Загружаем настройки перевода
-	win.Project.SetSourceLang(cfg.Section("Project").Key("SourceLang").MustString("AUTO"))
-	win.Project.SetTargetLang(cfg.Section("Project").Key("TargetLang").MustString("AUTO"))
-
-	//Если стоит AUTO, пытаемся определить
-	if win.Project.GetSourceLang() == "AUTO" {
+	switch str.ToUpper(lang) {
+	case "AUTO":
 		//log.Println("[DEBG]\tAUTO mode")
 
-		lang, err := getListStoreColumnLanguage(win.ListStore, columnEN)
+		lang, err = getListStoreColumnLanguage(win.ListStore, columnEN)
 
-		// Если не нашли язык, берем из имени файла (только для potbs)
-		if err != nil {
-			log.Println("[DEBG]\tSource lang from filename")
-			switch win.Project.GetModuleName() {
-			case "potbs":
-				lang = filepath.Base(win.sourceFile)[0:2]
-			}
+		// Если не нашли язык, к следующему выбору (берем из имени файла)
+		if err == nil {
+			break
 		}
-
-		win.Project.SetSourceLang(str.ToUpper(lang))
+		fallthrough
+	case "FILE":
+		// Берем из имени файла (только для potbs)
+		if win.Project.GetModuleName() != "potbs" {
+			break
+		}
+		//log.Println("[DEBG]\tFILE mode")
+		lang = filepath.Base(win.sourceFile)[0:2]
 	}
 
-	//Если стоит AUTO, пытаемся определить
-	if win.Project.GetTargetLang() == "AUTO" {
-		lang, err := getListStoreColumnLanguage(win.ListStore, columnRU)
+	// Если получили валидное значение языка, ставим его
+	switch str.ToUpper(lang) {
+	case "RU", "EN", "DE", "ES", "FR":
+		win.Project.SetSourceLang(str.ToUpper(lang))
+	default:
+		win.Project.SetSourceLang("Source")
+	}
 
-		// Если не нашли язык, берем из имени файла(только для potbs)
-		if err != nil {
-			log.Println("[DEBG]\tTarget lang from filename")
-			switch win.Project.GetModuleName() {
-			case "potbs":
-				lang = filepath.Base(win.targetFile)[0:2]
-			}
+	// Определяем Target Lang
+
+	lang = cfg.Section("Project").Key("TargetLang").MustString("AUTO")
+
+	switch lang {
+	case "AUTO":
+		//log.Println("[DEBG]\tAUTO mode")
+
+		lang, err = getListStoreColumnLanguage(win.ListStore, columnRU)
+
+		// Если не нашли язык, к следующему выбору (берем из имени файла)
+		if err == nil {
+			break
 		}
+		fallthrough
 
+	case "FILE":
+
+		// Берем из имени файла (только для potbs)
+		if win.Project.GetModuleName() != "potbs" {
+			break
+		}
+		//log.Println("[DEBG]\tFILE mode")
+		lang = filepath.Base(win.targetFile)[0:2]
+	}
+
+	// Если получили валидное значение языка, ставим его
+	switch str.ToUpper(lang) {
+	case "RU", "EN", "DE", "ES", "FR":
 		win.Project.SetTargetLang(str.ToUpper(lang))
+	default:
+		win.Project.SetTargetLang("Target")
 	}
 
 	log.Printf("[INFO]\tSource file lang: %s\n", win.Project.GetSourceLang())
 	log.Printf("[INFO]\tTarget file lang: %s\n", win.Project.GetTargetLang())
-
-	// Если вдруг получили пустое значение
-	if win.Project.GetSourceLang() == "" {
-		win.Project.SetSourceLang("Source")
-	}
-	if win.Project.GetTargetLang() == "" {
-		win.Project.SetTargetLang("Target")
-	}
 
 	// Устанавливаем заголовки полей
 	win.TreeView.GetColumn(columnEN).SetTitle(win.Project.GetSourceLang())
