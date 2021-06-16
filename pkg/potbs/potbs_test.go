@@ -9,21 +9,21 @@ import (
 const (
 	testdatfile = "test.dat"
 	testFailDat = "test_fail.dat"
-	datlen      = 15 //кол-во записей в тестовом файле
+	datlen      = 20 //кол-во записей в тестовом файле
 
 	testoutdat = "testout.dat"
 	testoutdir = "testout.dir"
 
-	datSize = 1692 // Размер создаваемого файла
-	dirSize = 321  // Размер создаваемого файла
+	datSize = 2125 // Размер создаваемого файла
+	dirSize = 418  // Размер создаваемого файла
 
 )
 
 var checkLen = map[int]int{
 	0:  0,
-	4:  215,
-	6:  190,
-	12: 429,
+	9:  215,
+	11: 190,
+	17: 429,
 }
 
 func TestErroLoad(t *testing.T) {
@@ -36,7 +36,7 @@ func TestErroLoad(t *testing.T) {
 	}
 }
 
-func TestAll(t *testing.T) {
+func TestLoadSave(t *testing.T) {
 
 	prog := New(Config{
 		//Debug: os.Stdout,
@@ -96,5 +96,20 @@ func TestAll(t *testing.T) {
 	//Убираем временные файлы
 	os.Remove(testoutdat)
 	os.Remove(testoutdir)
+
+}
+
+func BenchmarkLoad(b *testing.B) {
+	//b.ReportAllocs()
+	prog := New(Config{
+		//Debug: os.Stdout,
+	})
+	b.ResetTimer()
+	_, err := prog.LoadFile("ru_ru_data.dat")
+	if err != nil {
+		b.Error("[LoadDat] failed: Failed dat file load success.")
+	}
+	//b.StopTimer()
+	//b.Log(list.Len())
 
 }
