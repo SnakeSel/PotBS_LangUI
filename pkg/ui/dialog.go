@@ -7,7 +7,7 @@ import (
 	gotr "github.com/bas24/googletranslatefree"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
-	ms "github.com/snakesel/mstranslator"
+	tr "github.com/snakesel/libretranslate"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
 	"github.com/snakesel/potbs_langui/pkg/tmpl"
@@ -38,8 +38,8 @@ type DialogWindow struct {
 
 	TmplList *[]tmpl.TTmpl
 
-	mskey    string
-	msregion string
+	//mskey    string
+	//msregion string
 }
 
 // Окно диалога
@@ -132,10 +132,9 @@ func (dialog *DialogWindow) BtnGoogleTr_clicked() {
 
 // Переводим текст через MS Translator
 func (dialog *DialogWindow) BtnLibreTr_clicked() {
-	tranlate := ms.New(
-		ms.Config{
-			Key:    dialog.mskey,
-			Region: dialog.msregion,
+	tranlate := tr.New(
+		tr.Config{
+			Url: "https://libretranslate.de",
 		})
 
 	text, err := dialog.BufferEn.GetText(dialog.BufferEn.GetStartIter(), dialog.BufferEn.GetEndIter(), true)
@@ -165,16 +164,17 @@ func (dialog *DialogWindow) SetLocale(locale *locales.Printer) {
 	dialog.Window.SetTitle(locale.Sprintf("DialogTitle"))
 	dialog.BtnTmplRun.SetLabel(locale.Sprintf("from template"))
 	dialog.BtnGooglTr.SetTooltipText(locale.Sprintf("Translate via Google Translate"))
+	dialog.BtnLibreTr.SetTooltipText(locale.Sprintf("Translate via Libre Translate"))
 
 }
 
 // Задать KEY и REGION для MS Translator
-func (dialog *DialogWindow) SetMSTranslatorKey(key, region string) {
+// func (dialog *DialogWindow) SetMSTranslatorKey(key, region string) {
 
-	dialog.mskey = key
-	dialog.msregion = region
+// 	dialog.mskey = key
+// 	dialog.msregion = region
 
-}
+// }
 
 func errorCheck(e error, text_opt ...string) {
 	if e != nil {

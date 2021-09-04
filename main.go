@@ -5,7 +5,7 @@ package main
 import (
 	"log"
 
-	ms "github.com/snakesel/mstranslator"
+	tr "github.com/snakesel/libretranslate"
 	"github.com/snakesel/potbs_langui/pkg/apkstrings"
 	"github.com/snakesel/potbs_langui/pkg/gtkutils"
 	"github.com/snakesel/potbs_langui/pkg/locales"
@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	version      = "20210531"
+	version      = "20210904"
 	appId        = "snakesel.potbs-langui"
 	MainGlade    = "data/ui/main.glade"
 	tmplPatch    = "data/tmpl"
@@ -342,7 +342,7 @@ func main() {
 		dialog.BtnGooglTr.Connect("clicked", dialog.BtnGoogleTr_clicked)
 		dialog.BtnLibreTr.Connect("clicked", dialog.BtnLibreTr_clicked)
 		// Задать KEY и REGION для MS Translator
-		dialog.SetMSTranslatorKey(MSkey, MSregion)
+		//dialog.SetMSTranslatorKey(MSkey, MSregion)
 
 		// ### применяем настроки
 		win.Window.Resize(cfg.Section("Main").Key("width").MustInt(600), cfg.Section("Main").Key("height").MustInt(600))
@@ -366,7 +366,9 @@ func main() {
 		case startup_autoload:
 			source = cfg.Section("Project").Key("SourceFile").MustString("")
 			target = cfg.Section("Project").Key("TargetFile").MustString("")
-
+		case startup_opendialog:
+			source = ""
+			target = ""
 		default:
 			// Путь к файлам
 			langFilePath := cfg.Section("Main").Key("Patch").MustString("")
@@ -467,10 +469,9 @@ func mainWindowCreate(b *gtk.Builder) *MainWindow {
 // Получить язык текста строк в столбце column
 func getListStoreColumnLanguage(listStore *gtk.ListStore, column int) (string, error) {
 
-	translate := ms.New(
-		ms.Config{
-			Key:    MSkey,
-			Region: MSregion,
+	translate := tr.New(
+		tr.Config{
+			Url: "https://libretranslate.de",
 		})
 
 	var re = regexp.MustCompile(`[[:punct:]]`)
@@ -481,8 +482,8 @@ func getListStoreColumnLanguage(listStore *gtk.ListStore, column int) (string, e
 		return "", fmt.Errorf("Error GetIterFirs")
 	}
 
-	// Цикл пока уверенность в определении меньше 1 (первой 1 не верим))
-	for average < 1.0 && listStore.IterNext(iter) {
+	// Цикл пока уверенность в определении меньше 0.8
+	for average < 80 && listStore.IterNext(iter) {
 		text, err := gtkutils.GetListStoreValueString(listStore, iter, column)
 		if err != nil {
 			return "", fmt.Errorf("Error GetListStoreValueString: %s", err.Error())
