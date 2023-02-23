@@ -10,7 +10,7 @@ require (
 	github.com/snakesel/libretranslate v0.0.2
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tealeg/xlsx/v3 v3.2.3
-	golang.org/x/text v0.3.6
+	golang.org/x/text v0.3.8
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
