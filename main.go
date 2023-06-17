@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	version      = "20210904"
+	version      = "20230617"
 	appId        = "snakesel.potbs-langui"
 	MainGlade    = "data/ui/main.glade"
 	tmplPatch    = "data/tmpl"
@@ -232,19 +232,23 @@ func main() {
 		})
 
 		win.BtnDown.Connect("clicked", func() {
+			win.BtnDown.SetSensitive(false)
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchNext(searchtext)
 			if patch != nil {
 				win.TreeView.SetCursor(patch, nil, false)
 			}
+			win.BtnDown.SetSensitive(true)
 		})
 
 		win.BtnUp.Connect("clicked", func() {
+			win.BtnUp.SetSensitive(false)
 			searchtext, _ := win.Search.GetText()
 			patch := win.searchPrev(searchtext)
 			if patch != nil {
 				win.TreeView.SetCursor(patch, nil, false)
 			}
+			win.BtnUp.SetSensitive(true)
 		})
 
 		win.Search.Connect("activate", func() {
@@ -846,7 +850,7 @@ func (win *MainWindow) SetLocale() {
 
 }
 
-//Сохранение настроек
+// Сохранение настроек
 func (win *MainWindow) saveCfg() {
 
 	w, h := win.Window.GetSize()
@@ -1190,6 +1194,8 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 
 // Сохраняем перевод
 func (win *MainWindow) SaveTarget(outfile string) {
+	log.Println("SaveTarget")
+
 	var err error
 	var sum_all, sum_ru int //Подсчет % перевода
 	sum_all = 0
@@ -1209,10 +1215,11 @@ func (win *MainWindow) SaveTarget(outfile string) {
 	iter, _ := win.ListStore.GetIterFirst()
 	next := true
 	for next {
+
 		//Получаем данные полей из ListStore
 		line[id], err = gtkutils.GetListStoreValueString(win.ListStore, iter, columnID)
 		errorCheck(err)
-
+		//fmt.Println(line[id])
 		// Если поле mode существует, заполняем
 		// иначе заполняем перевод
 		if mode != -1 {
@@ -1293,6 +1300,8 @@ func (win *MainWindow) SaveTarget(outfile string) {
 
 	}
 
+	log.Println("data ok, save file")
+
 	err = win.Project.SaveFile(outfile, outdata)
 	errorCheck(err)
 	log.Printf("[INFO]\tФайл %s сохранен.\n", outfile)
@@ -1330,39 +1339,55 @@ func (win *MainWindow) lineSelected(dialog *ui.DialogWindow) {
 // Прямой поиск
 func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 
-	var loop int
+	iter := new(gtk.TreeIter)
 
-	_, iter, ok := win.LineSelection.GetSelected()
+	_, childIter, ok := win.LineSelection.GetSelected()
 	if !ok {
 		//iter, _ = win.ListStore.GetIterFirst()
 		iter, _ = win.Filter.GetIterFirst()
+
+	} else {
+		if win.Filter.IterHasChild(childIter) {
+			iter, _ = win.Filter.ConvertChildIterToIter(childIter)
+		} else {
+			iter = childIter
+		}
 	}
 
 	searchtext := str.ToUpper(text)
-	loop = 1
-	for loop < 3 {
+	// startIter, err := iter.Copy()
+	// errorCheck(err)
+	startIter := new(gtk.TreeIter)
+	startIter.GtkTreeIter = iter.GtkTreeIter
 
-		// Берем следующую строку, если ее нет, значит дошли до конца - переходим к первой
-		//if !win.ListStore.IterNext(iter) {
-		if !win.Filter.IterNext(iter) {
-			iter, _ = win.Filter.GetIterFirst()
-			loop += 1
-		}
+	// Берем следующую строку, если ее нет, значит дошли до конца - переходим к первой
+	//if !win.ListStore.IterNext(iter) {
+	if !win.Filter.IterNext(iter) {
+		iter, _ = win.Filter.GetIterFirst()
+	}
 
-		if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
-			log.Println("[ERR]\tневерный итератор Next")
-			continue
-		}
+	for startIter.GtkTreeIter != iter.GtkTreeIter {
+
+		// if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
+		// 	log.Println("[ERR]\tневерный итератор Next")
+		// 	continue
+		// }
 
 		//Ищем совпадения в текущей записи
 		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
 			patch, err := win.Filter.GetPath(iter)
 			errorCheck(err)
-			loop = 5
 			return patch
+		}
+		// Берем следующую строку, если ее нет, значит дошли до конца - переходим к первой
+		//if !win.ListStore.IterNext(iter) {
+		if !win.Filter.IterNext(iter) {
+			log.Println("дошли до конца")
+			iter, _ = win.Filter.GetIterFirst()
 		}
 
 	}
+
 	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
@@ -1370,37 +1395,52 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 // Обратный поиск
 func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 
-	_, iter, ok := win.LineSelection.GetSelected()
+	iter := new(gtk.TreeIter)
+
+	_, childIter, ok := win.LineSelection.GetSelected()
 	if !ok {
-		//Iter = &win.EndIterator
 		iter, _ = win.Filter.ConvertChildIterToIter(win.filterChildEndIter)
+
+	} else {
+		if win.Filter.IterHasChild(childIter) {
+			iter, _ = win.Filter.ConvertChildIterToIter(childIter)
+		} else {
+			iter = childIter
+		}
 	}
 
 	searchtext := str.ToUpper(text)
-	loop := 1
-	for loop < 3 {
+
+	startIter := new(gtk.TreeIter)
+	startIter.GtkTreeIter = iter.GtkTreeIter
+
+	// Берем предыдущую строку, если ее нет, значит дошли до начала - переходим к последнему итератору
+	if !win.Filter.IterPrevious(iter) {
+		//*Iter = win.EndIterator
+		iter, _ = win.Filter.ConvertChildIterToIter(win.filterChildEndIter)
+	}
+
+	for startIter.GtkTreeIter != iter.GtkTreeIter {
 		// Берем предыдущую строку, если ее нет, значит дошли до начала - переходим к последнему итератору
 		if !win.Filter.IterPrevious(iter) {
 			//*Iter = win.EndIterator
 			iter, _ = win.Filter.ConvertChildIterToIter(win.filterChildEndIter)
-			loop += 1
 		}
 
-		if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
-			log.Println("[ERR]\tневерный итератор Prev")
-			continue
-		}
+		// if !win.ListStore.IterIsValid(win.Filter.ConvertIterToChildIter(iter)) {
+		// 	log.Println("[ERR]\tневерный итератор Prev")
+		// 	continue
+		// }
 
 		//Ищем совпадения в текущей записи
 		if gtkutils.FilterSearchTextfromIter(win.Filter, iter, searchtext, win.Search_Full.GetActive()) {
 			patch, err := win.Filter.GetPath(iter)
 			errorCheck(err)
-			loop = 5
 			return patch
 		}
 
 	}
-	//log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
+	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
 	return nil
 }
 

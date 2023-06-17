@@ -134,7 +134,8 @@ func checkModeLine(line string) string {
 		return "utdt"
 	case str.Contains(line, "utdn"):
 		return "utdn"
-
+	case str.Contains(line, "mgdt"):
+		return "mgdt"
 	default:
 		return ""
 	}
@@ -219,6 +220,7 @@ func (t *Translate) LoadFile(filepach string) (*list.List, error) {
 	// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
 	// mcdn - Пустая строка со скриптом
 	// ugdt - названия предметов?
+	// mgdt - новое изобретение vision. Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
 
 	id := t.GetHeaderNbyName("id")
 	text := t.GetHeaderNbyName("text")
@@ -369,7 +371,7 @@ func (t *Translate) SaveFile(filepach string, datas *list.List) error {
 		linelen += len(line[text])
 		// Ебала с размером. В позицию идет вся длинна (linelen), а в размер только длина текста (mcdtlen).
 		switch line[mode] {
-		case "mcdt":
+		case "mcdt", "mgdt":
 			// mcdt - Текст со скриптом. Далее строка имеет вид: <текст>\t<scriptID>\t<script name>. Подсчитваем только <текст>
 			ind := str.Index(line[text], "\t")
 			// -1 - не найдено
