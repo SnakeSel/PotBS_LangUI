@@ -410,9 +410,9 @@ func GetTreeModelValueBool(fl *gtk.TreeModel, iter *gtk.TreeIter, column int) (b
 // Получаем строку из столбца по итератору
 func GetListStoreValueString(ls *gtk.ListStore, iter *gtk.TreeIter, column int) (string, error) {
 
-	if !ls.IterIsValid(iter) {
-		log.Printf("%v нот валид", iter)
-	}
+	// if !ls.IterIsValid(iter) {
+	// 	log.Printf("%v нот валид", iter)
+	// }
 
 	value, err := ls.GetValue(iter, column)
 	if err != nil {

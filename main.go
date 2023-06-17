@@ -1194,7 +1194,6 @@ func (win *MainWindow) ToolBtnVerify_clicked() {
 
 // Сохраняем перевод
 func (win *MainWindow) SaveTarget(outfile string) {
-	log.Println("SaveTarget")
 
 	var err error
 	var sum_all, sum_ru int //Подсчет % перевода
@@ -1206,8 +1205,6 @@ func (win *MainWindow) SaveTarget(outfile string) {
 	text := win.Project.GetHeaderNbyName("text")
 	mode := win.Project.GetHeaderNbyName("mode")
 
-	// массив строк, длина = кол-ву заголовков в плагине
-	line := make([]string, win.Project.GetHeaderLen())
 	// список из line
 	outdata := list.New()
 
@@ -1215,6 +1212,9 @@ func (win *MainWindow) SaveTarget(outfile string) {
 	iter, _ := win.ListStore.GetIterFirst()
 	next := true
 	for next {
+
+		// массив строк, длина = кол-ву заголовков в плагине
+		line := make([]string, win.Project.GetHeaderLen())
 
 		//Получаем данные полей из ListStore
 		line[id], err = gtkutils.GetListStoreValueString(win.ListStore, iter, columnID)
@@ -1292,15 +1292,11 @@ func (win *MainWindow) SaveTarget(outfile string) {
 
 		// Добавляем Line в список
 		outdata.PushBack(line)
-		// переинициализируем Line
-		line = make([]string, win.Project.GetHeaderLen())
 
 		// к следующей записи
 		next = win.ListStore.IterNext(iter)
 
 	}
-
-	log.Println("data ok, save file")
 
 	err = win.Project.SaveFile(outfile, outdata)
 	errorCheck(err)
@@ -1389,6 +1385,11 @@ func (win *MainWindow) searchNext(text string) *gtk.TreePath {
 	}
 
 	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
+
+	msg := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_CLOSE, fmt.Sprintf("%s\n\n%s", text, win.locale.Sprintf("Not found")))
+	msg.Run()
+	msg.Close()
+
 	return nil
 }
 
@@ -1441,6 +1442,11 @@ func (win *MainWindow) searchPrev(text string) *gtk.TreePath {
 
 	}
 	log.Printf("Поиск '%s': ничего не найдено.\n", searchtext)
+
+	msg := gtk.MessageDialogNew(win.Window, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_CLOSE, fmt.Sprintf("%s\n\n%s", text, win.locale.Sprintf("Not found")))
+	msg.Run()
+	msg.Close()
+
 	return nil
 }
 
