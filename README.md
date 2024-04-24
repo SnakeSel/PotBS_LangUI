@@ -35,6 +35,10 @@ $ git clone https://github.com/SnakeSel/PotBS_LangUI
 ```sh
 $ cd PotBS_LangUI
 ```
+#### Загружаем зависимости
+```sh
+go mod tidy
+```
 #### Компилируем:
 - Windows:
 ```sh

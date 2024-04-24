@@ -151,7 +151,7 @@ func addRow(listStore *gtk.ListStore, id, tpe, en, ru string) error {
 		[]int{columnID, columnMode, columnEN, columnRU},
 		[]interface{}{id, tpe, en, ru})
 	if err != nil {
-		log.Fatal("[ERR]\tUnable to add row:", err)
+		log.Fatal("[ERR]\tUnable to add row:", err.Error())
 	}
 
 	return err
@@ -557,7 +557,7 @@ func (win *MainWindow) open(sourceFile, targetFile string) {
 	// Загружаем файлы перевода и выводим в таблицу
 	err = win.loadListStore(win.sourceFile, win.targetFile)
 	if err != nil {
-		log.Fatalln("[ERR]\tОшибка загрузки файлов")
+		log.Fatalf("[ERR] %s", err.Error())
 		os.Exit(1)
 	}
 
